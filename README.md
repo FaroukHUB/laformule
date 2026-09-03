@@ -68,11 +68,14 @@ message. Le code vit dans `snack-runtime.js` (section « ASSISTANT DE PERSONNALI
 
 - **API** : `api/orders.php` (PHP, sans base de données, stockage JSON verrouillé dans
   `api/data/orders.json`). Endpoints : `create`, `status`, `list`, `update`, `ping`.
-- **Client** : à l'envoi WhatsApp, le site génère un numéro (`LF-1234`) inclus dans le message
-  et enregistre la commande dans l'API. Le ticket affiche alors une barre « Reçue → En
-  préparation → Prête / En route → Terminée » rafraîchie toutes les 10 s, l'heure estimée si le
-  resto l'a indiquée, et un bouton « Me prévenir quand c'est prêt » (notification navigateur).
-  Une puce « Commande LF-1234 · En préparation » apparaît dans le hero.
+- **Client** : à l'envoi, le site génère un numéro (`LF-1234`) inclus dans le message WhatsApp,
+  ouvre WhatsApp puis demande « Message envoyé sur WhatsApp ? ». La commande n'est enregistrée
+  dans l'API **que si le client confirme** (bouton « Réouvrir WhatsApp » en cas de doute).
+  Un écran de suivi plein écran s'ouvre alors : numéro en gros, frise « Reçue → En préparation →
+  Prête / En route → Terminée » avec les heures, heure estimée donnée par le resto, bouton
+  « Me prévenir quand c'est prêt », récap de la commande, appel et avis Google. Il se rafraîchit
+  toutes les 10 s. Le panneau ticket ne garde qu'une carte compacte « Voir le suivi », et une puce
+  « Commande LF-1234 · En préparation » apparaît dans le hero.
 - **Cuisine** : `/cuisine/` (page protégée par le code `KITCHEN_PIN` de `api/config.php`,
   `1234` par défaut, **à changer**). Liste des commandes du jour, bip et vibration à chaque
   nouvelle commande, boutons « Commencer (prête dans 10/20/30/45 min) », « Prête » ou « Partie

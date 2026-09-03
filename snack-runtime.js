@@ -1675,6 +1675,10 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     if (action === "enable-notifications") {
       enableNotifications();
     }
+
+    if (action === "open-status") {
+      openStatusSheet();
+    }
   }
 
   function findProductById(productId) {
@@ -2299,31 +2303,19 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
     if (ticketSent) {
       const sent = document.createElement("div");
-      sent.className =
-        "rounded-2xl border border-green-200 bg-green-50 p-3 space-y-2 text-xs";
-      const reviewUrl = getReviewUrl();
+      sent.className = "sent-card";
+      const head = statusHeadline();
       sent.innerHTML = `
-        <p class="font-semibold text-sm text-green-800">✅ Commande envoyée sur WhatsApp</p>
-        <p class="text-slate-600">${
-          tracking
-            ? "Suivez l'avancement ci-dessous, l'équipe vous rappelle en cas de question."
-            : "L'équipe vous rappelle pour confirmer. Si WhatsApp ne s'est pas ouvert, utilisez de nouveau le bouton en bas."
-        }</p>
-        ${trackingHtml()}
-        ${
-          reviewUrl
-            ? `<a href="${reviewUrl}" target="_blank" rel="noopener"
-                  class="inline-flex items-center gap-1 font-semibold text-slate-800 underline decoration-amber-400 underline-offset-2">
-                 ⭐ Content de votre repas ? Laissez un avis Google
-               </a>`
-            : ""
-        }
-        <div>
-          <button type="button"
-                  class="px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-700 font-semibold"
-                  data-ticket-action="new-order">
-            🧾 Nouvelle commande
-          </button>
+        <div class="sent-card-top">
+          <span class="sent-card-emoji">${head.emoji}</span>
+          <div class="min-w-0">
+            <p class="sent-card-title">${tracking ? `Commande n° ${tracking.id}` : "Commande envoyée"}</p>
+            <p class="sent-card-sub">${tracking ? STATUS_LABELS[tracking.status] || tracking.status : "sur WhatsApp"}${tracking && tracking.eta && tracking.status === "preparation" ? ` · prête vers ${fmtTime(tracking.eta)}` : ""}</p>
+          </div>
+        </div>
+        <div class="sent-card-actions">
+          <button type="button" class="sent-card-btn primary" data-ticket-action="open-status">📍 Voir le suivi</button>
+          <button type="button" class="sent-card-btn" data-ticket-action="new-order">🧾 Nouvelle commande</button>
         </div>
       `;
       body.appendChild(sent);
@@ -2548,6 +2540,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     }
 
     if (wizardOpen) renderWizard();
+    if (statusOpen) renderStatusSheet();
   }
 
   // ==========================================================================
@@ -2922,7 +2915,8 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     renderTicketPanel();
     if (tracking) startTrackingPoll();
     if (/[?&]open=ticket\b/.test(location.search)) {
-      ticketPanel.classList.remove("hidden");
+      if (ticketSent) openStatusSheet();
+      else ticketPanel.classList.remove("hidden");
     }
   }
 
@@ -3777,6 +3771,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
         mode: payload.mode,
         createdAt: data.createdAt || Math.floor(Date.now() / 1000),
         updatedAt: data.createdAt || Math.floor(Date.now() / 1000),
+        history: [{ status: "recue", at: data.createdAt || Math.floor(Date.now() / 1000) }],
       };
       saveTicketState();
       renderTicketPanel();
@@ -3819,6 +3814,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       tracking.status = data.status || prev;
       tracking.eta = data.eta || null;
       tracking.updatedAt = data.updatedAt || tracking.updatedAt;
+      if (Array.isArray(data.history)) tracking.history = data.history;
       if (prev !== tracking.status) {
         saveTicketState();
         renderTicketPanel();
@@ -3977,11 +3973,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       b.type = "button";
       b.className = "hero-chip tracking";
       b.innerHTML = `🧾 Commande ${tracking.id} · <strong>${STATUS_LABELS[tracking.status] || tracking.status}</strong> · voir le suivi`;
-      b.addEventListener("click", () => {
-        ensureTicketShell();
-        ticketPanel.classList.remove("hidden");
-        renderTicketPanel();
-      });
+      b.addEventListener("click", openStatusSheet);
       box.appendChild(b);
     }
 
@@ -4047,6 +4039,225 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       applyHeroActions();
       showToast({ icon: "🎉", type: "success", title: "Appli installée", message: `${snackName} est sur ton écran d'accueil.`, duration: 4000 });
     });
+  }
+
+  // ==========================================================================
+  // CONFIRMATION D'ENVOI + ÉCRAN DE SUIVI DE COMMANDE (plein écran)
+  // ==========================================================================
+  var confirmEl = null;
+  var statusEl = null;
+  var statusOpen = false;
+  var lastWaRetry = null;
+
+  function ensureConfirmSheet() {
+    if (confirmEl) return;
+    confirmEl = document.createElement("div");
+    confirmEl.id = "send-confirm";
+    confirmEl.className = "wizard hidden";
+    confirmEl.innerHTML = `
+      <div class="wizard-backdrop"></div>
+      <div class="wizard-sheet auto" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+        <div class="confirm-body">
+          <p class="confirm-icon">💬</p>
+          <h3 id="confirm-title" class="wizard-title">Message envoyé sur WhatsApp ?</h3>
+          <p class="wizard-subtitle">Le ticket a été préparé dans WhatsApp. Il faut appuyer sur <strong>Envoyer</strong> dans WhatsApp pour que le restaurant le reçoive.</p>
+          <div class="confirm-buttons">
+            <button type="button" class="wizard-btn primary" data-confirm="yes">✅ Oui, c'est envoyé</button>
+            <button type="button" class="wizard-btn secondary" data-confirm="retry">↩︎ Réouvrir WhatsApp</button>
+            <button type="button" class="confirm-cancel" data-confirm="no">Pas encore, je reviens au ticket</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(confirmEl);
+    confirmEl.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-confirm]");
+      if (!b) return;
+      const what = b.dataset.confirm;
+      if (what === "yes") {
+        closeConfirmSheet();
+        markTicketSent();
+        openStatusSheet();
+      } else if (what === "retry") {
+        if (typeof lastWaRetry === "function") lastWaRetry();
+      } else {
+        closeConfirmSheet();
+      }
+    });
+  }
+
+  function openConfirmSheet(retry) {
+    ensureConfirmSheet();
+    lastWaRetry = retry || null;
+    confirmEl.classList.remove("hidden");
+    document.body.classList.add("wizard-lock");
+  }
+
+  function closeConfirmSheet() {
+    if (!confirmEl) return;
+    confirmEl.classList.add("hidden");
+    if (!wizardOpen && !statusOpen) document.body.classList.remove("wizard-lock");
+  }
+
+  function ensureStatusSheet() {
+    if (statusEl) return;
+    statusEl = document.createElement("div");
+    statusEl.id = "order-status";
+    statusEl.className = "wizard hidden";
+    statusEl.innerHTML = `
+      <div class="wizard-backdrop" data-status-action="close"></div>
+      <div class="wizard-sheet auto" role="dialog" aria-modal="true" aria-labelledby="status-title">
+        <header class="wizard-head">
+          <span class="status-emoji" id="status-emoji">🧾</span>
+          <div class="min-w-0 flex-1">
+            <p id="status-title" class="wizard-product">Commande</p>
+            <p id="status-sub" class="wizard-variant"></p>
+          </div>
+          <button type="button" class="wizard-close" data-status-action="close" aria-label="Fermer">×</button>
+        </header>
+        <div id="status-body" class="wizard-body"></div>
+        <footer class="wizard-foot" id="status-foot"></footer>
+      </div>`;
+    document.body.appendChild(statusEl);
+    statusEl.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-status-action]");
+      if (b) {
+        const a = b.dataset.statusAction;
+        if (a === "close") closeStatusSheet();
+        if (a === "new-order") {
+          closeStatusSheet();
+          startNewOrder();
+        }
+        if (a === "notify") enableNotifications().then(renderStatusSheet);
+        if (a === "ticket") {
+          closeStatusSheet();
+          ensureTicketShell();
+          ticketPanel.classList.remove("hidden");
+          renderTicketPanel();
+        }
+        if (a === "refresh") {
+          pollTracking().then(renderStatusSheet);
+        }
+      }
+    });
+  }
+
+  function openStatusSheet() {
+    ensureStatusSheet();
+    statusOpen = true;
+    statusEl.classList.remove("hidden");
+    document.body.classList.add("wizard-lock");
+    renderStatusSheet();
+  }
+
+  function closeStatusSheet() {
+    if (!statusEl) return;
+    statusOpen = false;
+    statusEl.classList.add("hidden");
+    if (!wizardOpen) document.body.classList.remove("wizard-lock");
+  }
+
+  function fmtTime(ts) {
+    if (!ts) return "";
+    return new Date(ts * 1000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function statusHeadline() {
+    if (!tracking) return { emoji: "✅", title: "Commande envoyée", sub: "Le restaurant vous rappelle pour confirmer." };
+    const s = tracking.status;
+    const mode = getCurrentMode();
+    switch (s) {
+      case "recue":
+        return { emoji: "⏳", title: `Commande n° ${tracking.id}`, sub: "Reçue, en attente de prise en charge." };
+      case "preparation":
+        return { emoji: "👨‍🍳", title: `Commande n° ${tracking.id}`, sub: tracking.eta ? `En préparation · prête vers ${fmtTime(tracking.eta)}` : "En préparation." };
+      case "prete":
+        return { emoji: "🎉", title: "C'est prêt !", sub: mode.id === "sur-place" ? "À récupérer au comptoir." : "Venez la récupérer au comptoir." };
+      case "en_route":
+        return { emoji: "🛵", title: "En route !", sub: "Le livreur arrive." };
+      case "terminee":
+        return { emoji: "🏁", title: "Bon appétit !", sub: `Commande n° ${tracking.id} terminée.` };
+      case "annulee":
+        return { emoji: "❌", title: "Commande annulée", sub: "Le restaurant a annulé cette commande." };
+      default:
+        return { emoji: "🧾", title: `Commande n° ${tracking.id}`, sub: "" };
+    }
+  }
+
+  function renderStatusSheet() {
+    if (!statusEl || !statusOpen) return;
+    const head = statusHeadline();
+    statusEl.querySelector("#status-emoji").textContent = head.emoji;
+    statusEl.querySelector("#status-title").textContent = head.title;
+    statusEl.querySelector("#status-sub").textContent = head.sub;
+
+    const body = statusEl.querySelector("#status-body");
+    const mode = getCurrentMode();
+    const lines = asArray(ticketLines);
+    const totals = computeTotals();
+    const reviewUrl = getReviewUrl();
+
+    let timeline = "";
+    if (tracking) {
+      const steps = trackingSteps(tracking.mode);
+      const cancelled = tracking.status === "annulee";
+      let idx = steps.indexOf(tracking.status);
+      if (idx < 0) idx = cancelled ? -1 : 0;
+      const history = asArray(tracking.history);
+      const timeOf = (st) => {
+        const h = history.filter((x) => x.status === st).pop();
+        return h ? fmtTime(h.at) : "";
+      };
+      timeline = `
+        <ol class="timeline ${cancelled ? "cancelled" : ""}">
+          ${steps
+            .map((st, i) => {
+              const state = cancelled ? "off" : i < idx ? "done" : i === idx ? "current" : "todo";
+              let extra = "";
+              if (st === "preparation" && state === "current" && tracking.eta) extra = `prête vers ${fmtTime(tracking.eta)}`;
+              const t = state === "todo" || state === "off" ? "" : timeOf(st) || (i === 0 ? fmtTime(tracking.createdAt) : "");
+              return `<li class="${state}">
+                        <span class="tl-dot">${state === "done" ? "✓" : state === "current" ? "" : ""}</span>
+                        <span class="tl-text"><span class="tl-label">${STATUS_LABELS[st]}</span>${extra ? `<span class="tl-extra">${extra}</span>` : ""}</span>
+                        <span class="tl-time">${t}</span>
+                      </li>`;
+            })
+            .join("")}
+        </ol>
+        ${cancelled ? `<p class="track-status danger">Appelez-nous au <a href="${phoneHref}">${phoneDisplay}</a> pour en savoir plus.</p>` : ""}
+        ${
+          canNotify() && Notification.permission === "default" && !isTerminalStatus(tracking.status)
+            ? `<button type="button" class="track-notify" data-status-action="notify">🔔 Me prévenir quand c'est prêt</button>`
+            : ""
+        }
+        <p class="status-refresh">Mise à jour automatique · <button type="button" data-status-action="refresh">actualiser</button></p>`;
+    } else {
+      timeline = `<p class="wizard-subtitle">Le suivi en direct n'est pas disponible pour cette commande. L'équipe vous rappelle pour confirmer.</p>`;
+    }
+
+    const summary = `
+      <div class="status-summary">
+        <div class="status-row"><span>${mode.icon || ""} ${mode.label}${totals.isDelivery && orderMeta.address ? ` · ${orderMeta.address}` : ""}</span></div>
+        <div class="status-row"><span>🕒 ${orderMeta.time || "Dès que possible"}</span></div>
+        ${
+          lines.length
+            ? `<ul class="status-lines">${lines
+                .map((l) => `<li><span>${l.quantity > 1 ? l.quantity + " × " : ""}${l.productName}${l.variant === "menu" ? " (menu)" : ""}</span><span>${formatEuro(l.lineTotal)}</span></li>`)
+                .join("")}</ul>
+               <div class="status-total"><span>Total${totals.fee ? " (livraison incluse)" : ""}</span><span>${formatEuro(totals.total)}</span></div>`
+            : ""
+        }
+      </div>`;
+
+    body.innerHTML = timeline + summary;
+
+    const foot = statusEl.querySelector("#status-foot");
+    const done = !tracking || isTerminalStatus(tracking.status) || tracking.status === "prete";
+    foot.innerHTML = `
+      <div class="status-actions">
+        ${done && reviewUrl && tracking && tracking.status !== "annulee" ? `<a class="wizard-btn secondary" href="${reviewUrl}" target="_blank" rel="noopener">⭐ Laisser un avis Google</a>` : ""}
+        <a class="wizard-btn secondary" href="${phoneHref}">📞 Appeler</a>
+        <button type="button" class="wizard-btn ${done ? "primary" : "secondary"}" data-status-action="new-order">🧾 Nouvelle commande</button>
+      </div>`;
   }
 
   // ==========================================================================
@@ -4239,19 +4450,22 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
     const { txt, encoded } = payload;
 
+    const openGeneric = () => window.open(`https://wa.me/?text=${encoded}`, "_blank");
     if (navigator.share) {
       navigator
         .share({
           title: "Ticket commande",
           text: txt,
         })
+        .then(() => openConfirmSheet(openGeneric))
         .catch(() => {
-          window.open(`https://wa.me/?text=${encoded}`, "_blank");
+          openGeneric();
+          openConfirmSheet(openGeneric);
         });
     } else {
-      window.open(`https://wa.me/?text=${encoded}`, "_blank");
+      openGeneric();
+      openConfirmSheet(openGeneric);
     }
-    markTicketSent();
   }
 
   function shareTicketToRestaurant() {
@@ -4273,8 +4487,9 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     }
 
     const waUrl = `https://wa.me/${waNumber}?text=${encoded}`;
-    window.open(waUrl, "_blank");
-    markTicketSent();
+    const openWa = () => window.open(waUrl, "_blank");
+    openWa();
+    openConfirmSheet(openWa);
   }
 
   window.openTicketBuilder = openTicketBuilder;

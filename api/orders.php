@@ -218,6 +218,7 @@ switch ($action) {
                     'mode'      => $o['mode'],
                     'updatedAt' => $o['updatedAt'],
                     'createdAt' => $o['createdAt'],
+                    'history'   => $o['history'] ?? [],
                 ]);
             }
         }
