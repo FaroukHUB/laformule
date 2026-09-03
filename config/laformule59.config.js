@@ -24,7 +24,7 @@ window.SNACK_CONFIG = {
   },
 
   urls: {
-    website: "",
+    website: "https://laformule59.mon-agenceweb.fr/",
     googleMaps:
       "https://www.google.com/maps/place/2+Rue+Hector+Berlioz,+59700+Marcq-en-Baroeul,+France",
     googleMapsEmbed:
@@ -43,7 +43,39 @@ window.SNACK_CONFIG = {
     rating: 3.7,
     reviewCount: 136,
     url: "https://maps.app.goo.gl/",
+    // Lien « Laisser un avis » (format : https://search.google.com/local/writereview?placeid=XXX).
+    // Tant que le placeId n'est pas renseigné, on renvoie vers la fiche Google Maps.
+    reviewUrl: "",
     cuisine: ["Tacos", "Kebab", "Kapsalon", "Burgers", "Restauration rapide"]
+  },
+
+  heroTitle: "Tacos, burgers et snacking à Marcq-en-Barœul",
+
+  // ========== COMMANDE (ticket) ==========
+  ordering: {
+    modes: [
+      { id: "sur-place", label: "Sur place", icon: "🍽️" },
+      { id: "emporter", label: "À emporter", icon: "🥡" },
+      { id: "livraison", label: "Livraison", icon: "🛵" }
+    ],
+    defaultMode: "emporter",
+    pickupTime: "10 à 25 min",
+    slotStepMinutes: 15,   // pas des créneaux « heure souhaitée »
+    minLeadMinutes: 15,    // délai minimum avant le premier créneau
+    delivery: {
+      minimumOrder: 12,    // FAQ : livraison à partir de 12 € de commande
+      fee: 2.5,            // ⚠️ à confirmer avec le restaurant
+      freeFrom: null,      // ex. 25 => frais offerts dès 25 €
+      estimatedTime: "30 à 60 min",
+      zones: [
+        "Marcq-en-Barœul",
+        "Marquette-lez-Lille",
+        "La Madeleine",
+        "Bondues",
+        "Wambrechies",
+        "Saint-André-lez-Lille"
+      ]
+    }
   },
 
   // Avis Uber Eats (pour le hero + FAQ)

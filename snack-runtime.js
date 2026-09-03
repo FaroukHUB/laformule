@@ -57,6 +57,9 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     applyDrawer();
     applyFloatingCall();
     applySeo();
+    applyOpenStatus();
+    restoreTicketState();
+    applyReorderShortcut();
   }
 
   // ==========================================================================
@@ -1370,6 +1373,9 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       };
     }
 
+    // Si index.html porte déjà un JSON-LD statique complet, on ne le duplique pas
+    if ($("script[type='application/ld+json'][data-static]")) return;
+
     const s = document.createElement("script");
     s.type = "application/ld+json";
     s.innerHTML = JSON.stringify(ld);
@@ -1437,6 +1443,28 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       <div id="ticket-body" class="p-4 flex-1 overflow-y-auto space-y-4 text-sm"></div>
 
       <div class="px-4 pb-4 pt-2 border-t space-y-3 bg-slate-50/80">
+        <div class="space-y-1">
+          <p class="text-xs text-slate-500">Mode de commande</p>
+          <div id="ticket-mode-buttons" class="flex gap-1"></div>
+          <p id="ticket-mode-note" class="hidden text-[11px] text-slate-500"></p>
+        </div>
+
+        <div id="ticket-delivery" class="hidden space-y-1">
+          <label for="ticket-address" class="text-xs text-slate-500">Adresse de livraison <span class="text-red-500">*</span></label>
+          <input id="ticket-address" type="text" autocomplete="street-address"
+                 class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                 placeholder="N°, rue, ville (et étage / code si besoin)" />
+          <p id="ticket-delivery-info" class="text-[11px] text-slate-500"></p>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label for="ticket-time" class="text-xs text-slate-500">Heure souhaitée</label>
+          <select id="ticket-time"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ring)]">
+            <option value="">Dès que possible</option>
+          </select>
+        </div>
+
         <div class="flex flex-col gap-1">
           <label for="ticket-name" class="text-xs text-slate-500">Prénom <span class="text-red-500">*</span></label>
           <input id="ticket-name" type="text"
@@ -1458,9 +1486,20 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
                     placeholder="Précision, heure souhaitée, etc."></textarea>
         </div>
 
-        <div class="flex items-center justify-between text-sm font-semibold">
-          <span>Total</span>
-          <span id="ticket-total">0,00 €</span>
+        <div class="space-y-1">
+          <div id="ticket-subtotal-row" class="hidden flex items-center justify-between text-xs text-slate-500">
+            <span>Sous-total</span>
+            <span id="ticket-subtotal">0,00 €</span>
+          </div>
+          <div id="ticket-fee-row" class="hidden flex items-center justify-between text-xs text-slate-500">
+            <span>Frais de livraison</span>
+            <span id="ticket-fee">0,00 €</span>
+          </div>
+          <div class="flex items-center justify-between text-sm font-semibold">
+            <span>Total</span>
+            <span id="ticket-total">0,00 €</span>
+          </div>
+          <p id="ticket-minimum-warning" class="hidden text-[11px] text-red-600 font-semibold"></p>
         </div>
 
         <button id="ticket-share-restaurant" type="button"
@@ -1579,7 +1618,39 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
           setMainSauce(sauce);
         }
       }
+
+      if (action === "set-mode") {
+        setOrderMode(actionEl.dataset.modeId);
+      }
+
+      if (action === "reorder-last") {
+        reorderLastOrder();
+      }
+
+      if (action === "new-order") {
+        startNewOrder();
+      }
     });
+
+    // Sauvegarde locale des champs saisis
+    ["#ticket-name", "#ticket-phone", "#ticket-message", "#ticket-address"].forEach(
+      (sel) => {
+        const el = ticketPanel.querySelector(sel);
+        if (!el) return;
+        el.addEventListener("input", () => {
+          if (sel === "#ticket-address") orderMeta.address = el.value.trim();
+          saveTicketState();
+        });
+      }
+    );
+    const timeSelect = ticketPanel.querySelector("#ticket-time");
+    if (timeSelect) {
+      timeSelect.addEventListener("change", () => {
+        orderMeta.time = timeSelect.value || "";
+        saveTicketState();
+      });
+      timeSelect.addEventListener("focus", renderTimeSelect);
+    }
 
     const shareBtn = ticketPanel.querySelector("#ticket-share");
     if (shareBtn) {
@@ -2215,6 +2286,33 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
     const safeLines = asArray(ticketLines);
 
+    if (ticketSent) {
+      const sent = document.createElement("div");
+      sent.className =
+        "rounded-2xl border border-green-200 bg-green-50 p-3 space-y-2 text-xs";
+      const reviewUrl = getReviewUrl();
+      sent.innerHTML = `
+        <p class="font-semibold text-sm text-green-800">✅ Commande envoyée sur WhatsApp</p>
+        <p class="text-slate-600">L'équipe vous rappelle pour confirmer. Si WhatsApp ne s'est pas ouvert, utilisez de nouveau le bouton en bas.</p>
+        ${
+          reviewUrl
+            ? `<a href="${reviewUrl}" target="_blank" rel="noopener"
+                  class="inline-flex items-center gap-1 font-semibold text-slate-800 underline decoration-amber-400 underline-offset-2">
+                 ⭐ Content de votre repas ? Laissez un avis Google
+               </a>`
+            : ""
+        }
+        <div>
+          <button type="button"
+                  class="px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-700 font-semibold"
+                  data-ticket-action="new-order">
+            🧾 Nouvelle commande
+          </button>
+        </div>
+      `;
+      body.appendChild(sent);
+    }
+
     if (safeLines.length) {
       const blockList = document.createElement("div");
       blockList.innerHTML = `
@@ -2831,18 +2929,624 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     }
 
     if (!safeLines.length && !activeLine) {
-      const empty = document.createElement("p");
-      empty.className = "text-xs text-slate-500";
-      empty.textContent =
-        "Votre ticket est vide. Ajoutez un produit avec le bouton +.";
+      const empty = document.createElement("div");
+      empty.className = "text-xs text-slate-500 space-y-2";
+      empty.innerHTML = `
+        <p>Votre ticket est vide. Ajoutez un produit avec le bouton +.</p>
+        ${
+          lastOrder
+            ? `<button type="button"
+                       class="w-full px-3 py-2 rounded-full border border-slate-300 bg-white text-slate-800 font-semibold text-xs"
+                       data-ticket-action="reorder-last">
+                 🔁 Recommander ma dernière commande
+                 <span class="text-slate-400 font-normal">(${describeLastOrder()})</span>
+               </button>`
+            : ""
+        }
+      `;
       body.appendChild(empty);
     }
 
-    const total = safeLines.reduce(
-      (sum, line) => sum + (line.lineTotal || 0),
+    renderOrderMeta();
+    saveTicketState();
+  }
+
+  // ==========================================================================
+  // HORAIRES – STATUT OUVERT / FERMÉ ET CRÉNEAUX
+  // ==========================================================================
+  const DAY_NAMES = [
+    "dimanche",
+    "lundi",
+    "mardi",
+    "mercredi",
+    "jeudi",
+    "vendredi",
+    "samedi",
+  ];
+
+  function toMinutes(hhmm) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec((hhmm || "").trim());
+    if (!m) return null;
+    return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  }
+
+  function fromMinutes(min) {
+    const h = Math.floor(min / 60) % 24;
+    const m = min % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  // Transforme cfg.openingHours (liste avec day: "" = suite du jour précédent)
+  // en tableau indexé par jour (0 = dimanche) de créneaux en minutes.
+  function getWeeklyHours() {
+    const week = [[], [], [], [], [], [], []];
+    let current = null;
+    asArray(cfg.openingHours).forEach((h) => {
+      const dayName = (h.day || "").trim().toLowerCase();
+      if (dayName) {
+        const idx = DAY_NAMES.indexOf(dayName);
+        current = idx >= 0 ? idx : null;
+      }
+      if (current == null) return;
+      const opens = toMinutes(h.opens);
+      const closes = toMinutes(h.closes);
+      if (opens == null || closes == null) return;
+      week[current].push({
+        opens,
+        closes: closes <= opens ? closes + 1440 : closes,
+      });
+    });
+    week.forEach((d) => d.sort((a, b) => a.opens - b.opens));
+    return week;
+  }
+
+  // Heure courante à Paris (le client peut être dans un autre fuseau).
+  function getParisNow() {
+    try {
+      const parts = new Intl.DateTimeFormat("fr-FR", {
+        timeZone: "Europe/Paris",
+        weekday: "long",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).formatToParts(new Date());
+      const get = (t) => (parts.find((p) => p.type === t) || {}).value;
+      const day = DAY_NAMES.indexOf((get("weekday") || "").toLowerCase());
+      const hour = parseInt(get("hour"), 10) % 24;
+      const minute = parseInt(get("minute"), 10);
+      if (day >= 0 && !isNaN(hour) && !isNaN(minute)) {
+        return { day, minutes: hour * 60 + minute };
+      }
+    } catch (e) {
+      /* fallback local */
+    }
+    const d = new Date();
+    return { day: d.getDay(), minutes: d.getHours() * 60 + d.getMinutes() };
+  }
+
+  function describeNextOpen(offset, day, opensAt) {
+    if (offset === 0) return `ouvre à ${opensAt}`;
+    if (offset === 1) return `ouvre demain à ${opensAt}`;
+    return `ouvre ${DAY_NAMES[day]} à ${opensAt}`;
+  }
+
+  function getOpeningStatus(now = getParisNow()) {
+    const week = getWeeklyHours();
+    if (!week.some((d) => d.length)) return null;
+
+    // Créneau de la veille qui déborde après minuit
+    const prev = week[(now.day + 6) % 7].find(
+      (s) => s.closes > 1440 && now.minutes < s.closes - 1440
+    );
+    if (prev) {
+      return {
+        isOpen: true,
+        closesAt: fromMinutes(prev.closes - 1440),
+        closesInMinutes: prev.closes - 1440 - now.minutes,
+      };
+    }
+
+    for (const s of week[now.day]) {
+      if (now.minutes >= s.opens && now.minutes < s.closes) {
+        return {
+          isOpen: true,
+          closesAt: fromMinutes(s.closes),
+          closesInMinutes: s.closes - now.minutes,
+        };
+      }
+    }
+
+    for (let offset = 0; offset < 8; offset++) {
+      const day = (now.day + offset) % 7;
+      const slot = week[day].find((s) => offset > 0 || s.opens > now.minutes);
+      if (slot) {
+        const opensAt = fromMinutes(slot.opens);
+        return {
+          isOpen: false,
+          nextOpen: {
+            dayOffset: offset,
+            day,
+            opensAt,
+            label: describeNextOpen(offset, day, opensAt),
+          },
+        };
+      }
+    }
+    return { isOpen: false, nextOpen: null };
+  }
+
+  function openStatusHtml(status, compact) {
+    if (!status) return "";
+    if (status.isOpen) {
+      const soon = status.closesInMinutes <= 30;
+      const txt = soon
+        ? `Ouvert · ferme dans ${status.closesInMinutes} min`
+        : `Ouvert · ferme à ${status.closesAt}`;
+      return `<span class="open-pill ${soon ? "soon" : "open"}"><span class="dot"></span>${txt}</span>`;
+    }
+    const next = status.nextOpen
+      ? status.nextOpen.label
+      : "voir les horaires";
+    return `<span class="open-pill closed"><span class="dot"></span>Fermé · ${next}</span>`;
+  }
+
+  function applyOpenStatus() {
+    const hero = $("#hero");
+    if (!hero) return;
+    const kicker = hero.querySelector(".section-kicker");
+    if (!kicker) return;
+
+    let badge = $("#open-status");
+    if (!badge) {
+      badge = document.createElement("div");
+      badge.id = "open-status";
+      badge.className = "mb-2";
+      badge.setAttribute("aria-live", "polite");
+      kicker.parentNode.insertBefore(badge, kicker);
+    }
+
+    const paint = () => {
+      const st = getOpeningStatus();
+      if (!st) {
+        badge.remove();
+        return;
+      }
+      badge.innerHTML = openStatusHtml(st);
+    };
+    paint();
+    setInterval(paint, 60 * 1000);
+  }
+
+  // Créneaux horaires proposés dans le ticket (aujourd'hui + prochain jour ouvert)
+  function buildTimeSlots() {
+    const step = (cfg.ordering && cfg.ordering.slotStepMinutes) || 15;
+    const lead = (cfg.ordering && cfg.ordering.minLeadMinutes) || 15;
+    const now = getParisNow();
+    const week = getWeeklyHours();
+    const slots = [];
+    const MAX = 48;
+
+    for (let offset = 0; offset < 8 && slots.length < MAX; offset++) {
+      const day = (now.day + offset) % 7;
+      let addedForDay = false;
+      for (const s of week[day]) {
+        let start = s.opens;
+        if (offset === 0) {
+          const earliest = now.minutes + lead;
+          if (earliest >= s.closes) continue;
+          start = Math.max(s.opens, Math.ceil(earliest / step) * step);
+        }
+        for (let t = start; t < s.closes && slots.length < MAX; t += step) {
+          const prefix =
+            offset === 0 ? "aujourd'hui" : offset === 1 ? "demain" : DAY_NAMES[day];
+          const label = `${capitalize(prefix)} ${fromMinutes(t)}`;
+          slots.push({ value: label, label });
+          addedForDay = true;
+        }
+      }
+      if (addedForDay && offset >= 1) break;
+    }
+    return slots;
+  }
+
+  // ==========================================================================
+  // MODE DE COMMANDE, LIVRAISON, SAUVEGARDE LOCALE
+  // ==========================================================================
+  const DEFAULT_ORDER_MODES = [
+    { id: "sur-place", label: "Sur place", icon: "🍽️" },
+    { id: "emporter", label: "À emporter", icon: "🥡" },
+    { id: "livraison", label: "Livraison", icon: "🛵" },
+  ];
+
+  const STORAGE_PREFIX = `snackapp:${cfg.id || "snack"}:`;
+  const TICKET_STATE_KEY = STORAGE_PREFIX + "ticket";
+  const LAST_ORDER_KEY = STORAGE_PREFIX + "lastOrder";
+  const TICKET_STATE_TTL = 24 * 60 * 60 * 1000;
+
+  var orderMeta = { mode: null, address: "", time: "" };
+  var ticketSent = null;
+  var lastOrder = null;
+
+  function getOrderModes() {
+    const modes = cfg.ordering && Array.isArray(cfg.ordering.modes)
+      ? cfg.ordering.modes.filter((m) => m && m.id)
+      : [];
+    return modes.length ? modes : DEFAULT_ORDER_MODES;
+  }
+
+  function getCurrentMode() {
+    const modes = getOrderModes();
+    const found = modes.find((m) => m.id === orderMeta.mode);
+    if (found) return found;
+    const def =
+      modes.find((m) => m.id === (cfg.ordering && cfg.ordering.defaultMode)) ||
+      modes[0];
+    orderMeta.mode = def.id;
+    return def;
+  }
+
+  function isDeliveryMode() {
+    return getCurrentMode().id === "livraison";
+  }
+
+  function getDeliveryCfg() {
+    return (cfg.ordering && cfg.ordering.delivery) || {};
+  }
+
+  function formatEuro(n) {
+    return (Number(n) || 0).toFixed(2).replace(".", ",") + " €";
+  }
+
+  function computeTotals() {
+    const subtotal = asArray(ticketLines).reduce(
+      (sum, l) => sum + (l.lineTotal || 0),
       0
     );
-    totalEl.textContent = total.toFixed(2) + " €";
+    const d = getDeliveryCfg();
+    const isDelivery = isDeliveryMode();
+    let fee = 0;
+    if (isDelivery && typeof d.fee === "number") {
+      const free = typeof d.freeFrom === "number" && subtotal >= d.freeFrom;
+      fee = free ? 0 : d.fee;
+    }
+    const minimumOrder =
+      isDelivery && typeof d.minimumOrder === "number" ? d.minimumOrder : 0;
+    const missing = Math.max(0, minimumOrder - subtotal);
+    return {
+      subtotal,
+      fee,
+      total: subtotal + fee,
+      isDelivery,
+      minimumOrder,
+      missing,
+      belowMinimum: isDelivery && missing > 0,
+    };
+  }
+
+  function readTicketInputs() {
+    if (!ticketPanel) return { name: "", phone: "", message: "" };
+    const v = (sel) => {
+      const el = ticketPanel.querySelector(sel);
+      return el ? (el.value || "").trim() : "";
+    };
+    return {
+      name: v("#ticket-name"),
+      phone: v("#ticket-phone"),
+      message: v("#ticket-message"),
+    };
+  }
+
+  function saveTicketState() {
+    try {
+      const inputs = readTicketInputs();
+      const state = {
+        lines: asArray(ticketLines),
+        activeLine: activeLine || null,
+        meta: orderMeta,
+        sentAt: ticketSent ? ticketSent.at : null,
+        name: inputs.name,
+        phone: inputs.phone,
+        message: inputs.message,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem(TICKET_STATE_KEY, JSON.stringify(state));
+    } catch (e) {
+      /* stockage indisponible : on continue sans sauvegarde */
+    }
+  }
+
+  function loadStoredJson(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function productStillExists(line) {
+    return !!(line && line.productId && findProductById(line.productId));
+  }
+
+  // Restaure le ticket et la dernière commande au chargement de la page
+  function restoreTicketState() {
+    lastOrder = loadStoredJson(LAST_ORDER_KEY);
+    if (lastOrder && !Array.isArray(lastOrder.lines)) lastOrder = null;
+
+    const state = loadStoredJson(TICKET_STATE_KEY);
+    const fresh =
+      state && state.savedAt && Date.now() - state.savedAt < TICKET_STATE_TTL;
+
+    if (fresh) {
+      ticketLines = asArray(state.lines).filter(productStillExists);
+      activeLine =
+        state.activeLine && productStillExists(state.activeLine)
+          ? state.activeLine
+          : null;
+      orderMeta = Object.assign(
+        { mode: null, address: "", time: "" },
+        state.meta || {}
+      );
+      ticketSent = state.sentAt ? { at: state.sentAt } : null;
+    } else if (state) {
+      try {
+        localStorage.removeItem(TICKET_STATE_KEY);
+      } catch (e) {
+        /* ignore */
+      }
+    }
+
+    const hasSomething =
+      ticketLines.length || activeLine || (fresh && (state.name || state.phone)) || lastOrder;
+    if (!hasSomething) return;
+
+    ensureTicketShell();
+    if (fresh) {
+      const set = (sel, val) => {
+        const el = ticketPanel.querySelector(sel);
+        if (el && val) el.value = val;
+      };
+      set("#ticket-name", state.name);
+      set("#ticket-phone", state.phone);
+      set("#ticket-message", state.message);
+      set("#ticket-address", orderMeta.address);
+    } else if (lastOrder) {
+      const set = (sel, val) => {
+        const el = ticketPanel.querySelector(sel);
+        if (el && val) el.value = val;
+      };
+      set("#ticket-name", lastOrder.name);
+      set("#ticket-phone", lastOrder.phone);
+    }
+    renderTicketPanel();
+  }
+
+  function markTicketSent() {
+    const inputs = readTicketInputs();
+    lastOrder = {
+      lines: asArray(ticketLines).map((l) => Object.assign({}, l)),
+      meta: Object.assign({}, orderMeta),
+      name: inputs.name,
+      phone: inputs.phone,
+      sentAt: Date.now(),
+    };
+    try {
+      localStorage.setItem(LAST_ORDER_KEY, JSON.stringify(lastOrder));
+    } catch (e) {
+      /* ignore */
+    }
+    ticketSent = { at: Date.now() };
+    renderTicketPanel();
+    applyReorderShortcut();
+  }
+
+  function startNewOrder() {
+    ticketLines = [];
+    activeLine = null;
+    ticketSent = null;
+    renderTicketPanel();
+  }
+
+  function reorderLastOrder() {
+    if (!lastOrder || !Array.isArray(lastOrder.lines)) return;
+    ensureTicketShell();
+    const lines = lastOrder.lines.filter(productStillExists).map((l) =>
+      Object.assign({}, l, {
+        id: "line_" + Date.now() + "_" + Math.random().toString(16).slice(2),
+      })
+    );
+    if (!lines.length) {
+      alert("Les produits de votre dernière commande ne sont plus à la carte.");
+      return;
+    }
+    ticketLines = lines;
+    activeLine = null;
+    ticketSent = null;
+    if (lastOrder.meta) {
+      orderMeta = Object.assign({ mode: null, address: "", time: "" }, lastOrder.meta, { time: "" });
+      const addr = ticketPanel.querySelector("#ticket-address");
+      if (addr) addr.value = orderMeta.address || "";
+    }
+    const set = (sel, val) => {
+      const el = ticketPanel.querySelector(sel);
+      if (el && !el.value && val) el.value = val;
+    };
+    set("#ticket-name", lastOrder.name);
+    set("#ticket-phone", lastOrder.phone);
+    ticketPanel.classList.remove("hidden");
+    renderTicketPanel();
+  }
+
+  function describeLastOrder() {
+    if (!lastOrder) return "";
+    const lines = asArray(lastOrder.lines);
+    const count = lines.reduce((n, l) => n + (l.quantity > 0 ? l.quantity : 1), 0);
+    const total = lines.reduce((s, l) => s + (l.lineTotal || 0), 0);
+    return `${count} produit${count > 1 ? "s" : ""} · ${formatEuro(total)}`;
+  }
+
+  // Raccourci « Recommander » dans le hero quand une commande précédente existe
+  function applyReorderShortcut() {
+    const hero = $("#hero");
+    if (!hero) return;
+    let btn = $("#reorder-shortcut");
+    if (!lastOrder) {
+      if (btn) btn.remove();
+      return;
+    }
+    if (!btn) {
+      const form = hero.querySelector("#smart-search");
+      btn = document.createElement("button");
+      btn.id = "reorder-shortcut";
+      btn.type = "button";
+      btn.className =
+        "mt-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-[color:var(--brand)]";
+      btn.addEventListener("click", reorderLastOrder);
+      if (form && form.parentNode) {
+        form.parentNode.insertBefore(btn, form.nextSibling);
+      } else {
+        hero.appendChild(btn);
+      }
+    }
+    btn.innerHTML = `🔁 Recommander ma dernière commande <span class="text-slate-400 font-normal">(${describeLastOrder()})</span>`;
+  }
+
+  function getReviewUrl() {
+    return (
+      (cfg.google && cfg.google.reviewUrl) ||
+      (cfg.urls && cfg.urls.googleMaps) ||
+      (cfg.google && cfg.google.url) ||
+      ""
+    );
+  }
+
+  function renderTimeSelect() {
+    if (!ticketPanel) return;
+    const select = ticketPanel.querySelector("#ticket-time");
+    if (!select) return;
+    const slots = buildTimeSlots();
+    const current = orderMeta.time || "";
+    const options = [`<option value="">Dès que possible</option>`].concat(
+      slots.map(
+        (s) =>
+          `<option value="${s.value}"${s.value === current ? " selected" : ""}>${s.label}</option>`
+      )
+    );
+    select.innerHTML = options.join("");
+    if (current && !slots.some((s) => s.value === current)) {
+      orderMeta.time = "";
+    }
+  }
+
+  // Met à jour la partie « mode / livraison / totaux » du panneau sans toucher aux champs saisis
+  function renderOrderMeta() {
+    if (!ticketPanel) return;
+    const mode = getCurrentMode();
+    const modes = getOrderModes();
+
+    const wrap = ticketPanel.querySelector("#ticket-mode-buttons");
+    if (wrap) {
+      wrap.innerHTML = modes
+        .map((m) => {
+          const on = m.id === mode.id;
+          return `
+            <button type="button"
+                    data-ticket-action="set-mode"
+                    data-mode-id="${m.id}"
+                    class="flex-1 px-2 py-1.5 rounded-full border text-[11px] font-semibold ${
+                      on
+                        ? "bg-brand text-white border-brand"
+                        : "bg-white text-slate-700 border-slate-200"
+                    }">
+              ${m.icon ? m.icon + " " : ""}${m.label}
+            </button>`;
+        })
+        .join("");
+    }
+
+    const totals = computeTotals();
+    const d = getDeliveryCfg();
+
+    const deliveryBlock = ticketPanel.querySelector("#ticket-delivery");
+    if (deliveryBlock) {
+      deliveryBlock.classList.toggle("hidden", !totals.isDelivery);
+      const info = deliveryBlock.querySelector("#ticket-delivery-info");
+      if (info) {
+        const bits = [];
+        if (typeof d.minimumOrder === "number") bits.push(`minimum ${formatEuro(d.minimumOrder)}`);
+        if (typeof d.fee === "number") {
+          bits.push(
+            d.fee > 0
+              ? `frais ${formatEuro(d.fee)}${typeof d.freeFrom === "number" ? ` (offerts dès ${formatEuro(d.freeFrom)})` : ""}`
+              : "livraison offerte"
+          );
+        }
+        if (d.estimatedTime) bits.push(d.estimatedTime);
+        const zones = asArray(d.zones);
+        info.innerHTML =
+          (bits.length ? `<span>Livraison : ${bits.join(" · ")}.</span>` : "") +
+          (zones.length
+            ? `<br><span class="text-slate-400">Zones : ${zones.join(", ")}.</span>`
+            : "");
+      }
+    }
+
+    const note = ticketPanel.querySelector("#ticket-mode-note");
+    if (note) {
+      const parts = [];
+      if (mode.id === "emporter" && cfg.ordering && cfg.ordering.pickupTime) {
+        parts.push(`⏱️ Prêt en ${cfg.ordering.pickupTime} en général.`);
+      }
+      const st = getOpeningStatus();
+      if (st && !st.isOpen) {
+        parts.push(
+          `🔴 Restaurant fermé pour le moment${st.nextOpen ? ` (${st.nextOpen.label})` : ""}. Votre commande sera traitée à l'ouverture.`
+        );
+      }
+      note.textContent = parts.join(" ");
+      note.classList.toggle("hidden", !parts.length);
+    }
+
+    const subRow = ticketPanel.querySelector("#ticket-subtotal-row");
+    const feeRow = ticketPanel.querySelector("#ticket-fee-row");
+    const subEl = ticketPanel.querySelector("#ticket-subtotal");
+    const feeEl = ticketPanel.querySelector("#ticket-fee");
+    const totalEl = ticketPanel.querySelector("#ticket-total");
+    const showBreakdown = totals.isDelivery && typeof d.fee === "number";
+    if (subRow) subRow.classList.toggle("hidden", !showBreakdown);
+    if (feeRow) feeRow.classList.toggle("hidden", !showBreakdown);
+    if (subEl) subEl.textContent = formatEuro(totals.subtotal);
+    if (feeEl) feeEl.textContent = totals.fee > 0 ? formatEuro(totals.fee) : "offerts";
+    if (totalEl) totalEl.textContent = formatEuro(totals.total);
+
+    const warn = ticketPanel.querySelector("#ticket-minimum-warning");
+    const sendBtn = ticketPanel.querySelector("#ticket-share-restaurant");
+    if (warn) {
+      if (totals.belowMinimum) {
+        warn.textContent = `Minimum ${formatEuro(totals.minimumOrder)} pour la livraison : il manque ${formatEuro(totals.missing)}.`;
+        warn.classList.remove("hidden");
+      } else {
+        warn.classList.add("hidden");
+      }
+    }
+    if (sendBtn) {
+      sendBtn.disabled = !!totals.belowMinimum;
+      sendBtn.classList.toggle("opacity-50", !!totals.belowMinimum);
+      sendBtn.classList.toggle("cursor-not-allowed", !!totals.belowMinimum);
+    }
+
+    renderTimeSelect();
+  }
+
+  function setOrderMode(modeId) {
+    if (!getOrderModes().some((m) => m.id === modeId)) return;
+    orderMeta.mode = modeId;
+    renderOrderMeta();
+    saveTicketState();
+    if (modeId === "livraison" && ticketPanel) {
+      const addr = ticketPanel.querySelector("#ticket-address");
+      if (addr && !addr.value) addr.focus();
+    }
   }
 
   // ==========================================================================
@@ -2883,10 +3587,30 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       return null;
     }
 
-    const total = safeLines.reduce(
-      (sum, line) => sum + (line.lineTotal || 0),
-      0
-    );
+    const mode = getCurrentMode();
+    const totals = computeTotals();
+    const addressInput = ticketPanel.querySelector("#ticket-address");
+    if (addressInput) addressInput.classList.remove("ring-2", "ring-red-400");
+
+    if (totals.isDelivery) {
+      const address = addressInput ? addressInput.value.trim() : "";
+      if (!address) {
+        if (addressInput) {
+          addressInput.classList.add("ring-2", "ring-red-400");
+          addressInput.focus();
+        }
+        return null;
+      }
+      orderMeta.address = address;
+      if (totals.belowMinimum) {
+        alert(
+          `Minimum ${formatEuro(totals.minimumOrder)} pour la livraison : il manque ${formatEuro(totals.missing)}.`
+        );
+        return null;
+      }
+    }
+
+    const total = totals.total;
 
     const linesText = safeLines
       .map((line) => {
@@ -2976,10 +3700,28 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       .join("\n");
 
     const extra = (msgInput.value || "").trim();
+
+    const headerLines = [
+      `Commande ${snackName} – ${name} (${phone})`,
+      `${mode.icon ? mode.icon + " " : ""}${mode.label}${
+        totals.isDelivery && orderMeta.address ? ` – ${orderMeta.address}` : ""
+      }`,
+      `🕒 ${orderMeta.time ? orderMeta.time : "Dès que possible"}`,
+    ];
+
+    const totalLines = [];
+    if (totals.isDelivery && typeof getDeliveryCfg().fee === "number") {
+      totalLines.push(`Sous-total : ${totals.subtotal.toFixed(2)} €`);
+      totalLines.push(
+        `Frais de livraison : ${totals.fee > 0 ? totals.fee.toFixed(2) + " €" : "offerts"}`
+      );
+    }
+    totalLines.push(`Total : ${total.toFixed(2)} €`);
+
     const txt =
-      `Commande ${snackName} – ${name} (${phone})\n\n` +
+      `${headerLines.join("\n")}\n\n` +
       `${linesText}\n\n` +
-      `Total : ${total.toFixed(2)} €` +
+      totalLines.join("\n") +
       (extra ? `\n\nMessage : ${extra}` : "");
 
     const encoded = encodeURIComponent(txt);
@@ -3005,6 +3747,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     } else {
       window.open(`https://wa.me/?text=${encoded}`, "_blank");
     }
+    markTicketSent();
   }
 
   function shareTicketToRestaurant() {
@@ -3027,6 +3770,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
     const waUrl = `https://wa.me/${waNumber}?text=${encoded}`;
     window.open(waUrl, "_blank");
+    markTicketSent();
   }
 
   window.openTicketBuilder = openTicketBuilder;

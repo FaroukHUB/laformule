@@ -40,7 +40,29 @@ Ordre de chargement (en bas de `index.html`) : config → `script.js` → `snack
    `contact.whatsappOrdersNumber` de la config, message pré‑rempli avec chaque ligne, ses
    options et le total. « Partager le ticket » utilise le partage natif du téléphone.
 
-Le ticket est en mémoire uniquement : il est perdu au rechargement de la page.
+5. **Mode de commande** : sur place, à emporter ou livraison (liste `ordering.modes`). En
+   livraison, l'adresse devient obligatoire, le minimum de commande et les frais de
+   `ordering.delivery` s'affichent, et l'envoi est bloqué sous le minimum. Un sélecteur
+   « Heure souhaitée » propose « Dès que possible » puis des créneaux calculés à partir des
+   horaires d'ouverture (aujourd'hui et le prochain jour ouvert).
+6. **Sauvegarde locale** : le ticket, le mode, l'adresse et les coordonnées sont conservés dans
+   le navigateur pendant 24 h. Après envoi, la commande est mémorisée et un bouton
+   « Recommander ma dernière commande » apparaît dans le hero et dans le ticket vide.
+7. **Après envoi** : le ticket affiche un bloc de confirmation avec un lien « Laisser un avis
+   Google » (`google.reviewUrl`, sinon la fiche Google Maps) et un bouton « Nouvelle commande ».
+
+## Statut ouvert / fermé
+
+Le hero affiche une pastille calculée en direct à partir de `openingHours` et de l'heure de
+Paris : « Ouvert · ferme à 14:30 », « Ouvert · ferme dans 15 min » ou « Fermé · ouvre demain
+à 11:00 ». Le ticket reprend l'information quand le restaurant est fermé.
+
+## SEO
+
+`index.html` porte désormais en dur le titre, la description, l'URL canonique, les balises
+Open Graph et un JSON‑LD `Restaurant` complet (adresse, coordonnées GPS, horaires, liens
+Uber Eats / Deliveroo / Facebook). Le runtime ne duplique pas ce JSON‑LD quand il est présent
+(`data-static`). Le texte du hero est également écrit dans le HTML.
 
 ## Points d'attention connus
 
@@ -52,3 +74,7 @@ Le ticket est en mémoire uniquement : il est perdu au rechargement de la page.
   ce qui limite le référencement sans JavaScript.
 - Le numéro WhatsApp de réception des commandes est celui de `contact.whatsappOrdersNumber`
   dans la config : à vérifier avec le restaurant.
+- Les frais de livraison (`ordering.delivery.fee`) sont une valeur de démonstration à
+  confirmer avec le restaurant, ainsi que les zones livrées.
+- `google.reviewUrl` est vide : renseigner le lien « écrire un avis » de la fiche Google
+  (format `https://search.google.com/local/writereview?placeid=…`).

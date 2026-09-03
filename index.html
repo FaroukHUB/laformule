@@ -4,10 +4,21 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
 
-  <!-- LCP -->
-  <title>SnackApp</title>
-  <meta name="description" content="">
-  <link rel="canonical" href=""/>
+  <title>La Formule · Tacos, burgers et snacking à Marcq-en-Barœul</title>
+  <meta name="description" content="Compose ton tacos, découvre nos burgers, sandwiches, paninis, kapsalons, tex-mex et menus enfants chez La Formule, 2 rue Hector Berlioz à Marcq-en-Barœul. Sur place, à emporter ou en livraison. Commande sur WhatsApp.">
+  <link rel="canonical" href="https://laformule59.mon-agenceweb.fr/"/>
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#e11b22">
+
+  <!-- Open Graph / réseaux sociaux -->
+  <meta property="og:type" content="restaurant">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:site_name" content="La Formule">
+  <meta property="og:title" content="La Formule · Tacos, burgers et snacking à Marcq-en-Barœul">
+  <meta property="og:description" content="Tacos à composer, burgers, sandwiches, paninis et kapsalons. Sur place, à emporter ou en livraison à Marcq-en-Barœul et alentours.">
+  <meta property="og:url" content="https://laformule59.mon-agenceweb.fr/">
+  <meta property="og:image" content="https://laformule59.mon-agenceweb.fr/images/heroformule.webp">
+  <meta name="twitter:card" content="summary_large_image">
 
   <!-- Préconnexions utiles -->
   <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
@@ -23,28 +34,46 @@
   <!-- Feuille de styles locale -->
   <link rel="stylesheet" href="/styles.css"/>
 
-  <!-- JSON-LD Restaurant neutre (le runtime en injectera un autre basé sur SNACK_CONFIG) -->
-  <script type="application/ld+json">
+  <!-- Données structurées statiques (lisibles sans JavaScript) -->
+  <script type="application/ld+json" data-static>
   {
     "@context": "https://schema.org",
     "@type": "Restaurant",
-    "name": "SnackApp",
-    "image": "",
+    "@id": "https://laformule59.mon-agenceweb.fr/#restaurant",
+    "name": "La Formule",
+    "url": "https://laformule59.mon-agenceweb.fr/",
+    "image": "https://laformule59.mon-agenceweb.fr/images/heroformule.webp",
+    "logo": "https://laformule59.mon-agenceweb.fr/images/logoformule.webp",
+    "telephone": "+33982456975",
+    "priceRange": "€",
+    "servesCuisine": ["Tacos", "Kebab", "Kapsalon", "Burgers", "Restauration rapide"],
     "address": {
       "@type": "PostalAddress",
-      "streetAddress": "",
-      "addressLocality": "",
-      "postalCode": "",
+      "streetAddress": "2 Rue Hector Berlioz",
+      "addressLocality": "Marcq-en-Barœul",
+      "postalCode": "59700",
       "addressCountry": "FR"
     },
-    "telephone": "",
-    "servesCuisine": [],
-    "priceRange": "",
-    "url": "",
-    "sameAs": []
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": 50.6650182,
+      "longitude": 3.0855894
+    },
+    "hasMap": "https://www.google.com/maps/place/2+Rue+Hector+Berlioz,+59700+Marcq-en-Baroeul,+France",
+    "hasMenu": "https://laformule59.mon-agenceweb.fr/#menu",
+    "acceptsReservations": "False",
+    "openingHoursSpecification": [
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"], "opens": "11:00", "closes": "14:30" },
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Sunday"], "opens": "18:00", "closes": "22:30" },
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Friday","Saturday"], "opens": "18:00", "closes": "23:00" }
+    ],
+    "sameAs": [
+      "https://web.facebook.com/p/La-formule-100064280400137",
+      "https://www.ubereats.com/fr/store/la-formule/tL54YddwRdWouPGOcRLjOA",
+      "https://deliveroo.fr/fr/menu/lille/lille-marcq-en-baroeul/la-formule"
+    ]
   }
   </script>
-
 
 </head>
 
@@ -238,8 +267,8 @@
 <!-- HERO -->
 <section id="hero" class="relative">
   <img
-    src="/images/hero-placeholder.jpg"
-    alt="Photo du snack"
+    src="/images/heroformule.webp"
+    alt="La Formule - tacos, burgers et snacking à Marcq-en-Baroeul"
     class="w-full h-[44svh] md:h-[58svh] object-cover"
     decoding="async"
     fetchpriority="high"
@@ -251,9 +280,9 @@
   <div class="max-w-6xl mx-auto px-4">
     <div class="-mt-14 md:-mt-24 relative">
       <div class="bg-white rounded-3xl elev p-5 md:p-6 w-full md:w-[72%]">
-        <p class="section-kicker text-xs md:text-sm">Nom du snack · Ville</p>
+        <p class="section-kicker text-xs md:text-sm">La Formule · Marcq-en-Barœul</p>
         <h1 class="section-title text-xl md:text-3xl">
-          Spécialités, burgers et snacking
+          Tacos, burgers et snacking à Marcq-en-Barœul
         </h1>
 
         <div class="text-slate-600 text-sm md:text-base mt-2 flex items-center gap-2 flex-wrap">
