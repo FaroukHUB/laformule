@@ -1424,7 +1424,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     ticketToggle.type = "button";
     ticketToggle.className =
       "fixed left-4 bottom-4 z-40 flex items-center gap-2 px-3 py-2 rounded-full bg-brand text-white shadow-lg text-sm font-semibold";
-    ticketToggle.innerHTML = `<span class="text-lg">🎟️</span><span>Ticket</span>`;
+    ticketToggle.innerHTML = `<span class="text-lg">🎟️</span><span>Ticket</span><span id="ticket-count" class="ticket-count hidden">0</span>`;
 
     ticketPanel = document.createElement("aside");
     ticketPanel.id = "ticket-panel";
@@ -1524,112 +1524,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     ticketPanel.addEventListener("click", (e) => {
       const actionEl = e.target.closest("[data-ticket-action]");
       if (!actionEl) return;
-
-      const action = actionEl.dataset.ticketAction;
-
-      if (action === "close") {
-        ticketPanel.classList.add("hidden");
-      }
-
-      if (action === "add-active-line") {
-        addActiveLineToTicket();
-      }
-
-      if (action === "remove-line") {
-        const id = actionEl.dataset.lineId;
-        removeTicketLine(id);
-      }
-
-      if (action === "toggle-supp") {
-        const sid = actionEl.dataset.suppId;
-        toggleSupplementOnActive(sid);
-      }
-
-      if (action === "toggle-ingredient") {
-        const ing = actionEl.dataset.ingredient;
-        toggleRemovedIngredientOnActive(ing);
-      }
-
-      if (action === "set-kids-plate") {
-        const plateId = actionEl.dataset.plateId;
-        if (activeLine && activeLine.categoryId === "menu-enfant") {
-          activeLine.kidsChoice = plateId;
-          renderTicketPanel();
-        }
-      }
-
-      if (action === "set-drink") {
-        const drinkId = actionEl.dataset.drinkId;
-        if (activeLine) {
-          activeLine.drinkChoice = drinkId;
-          renderTicketPanel();
-        }
-      }
-
-      if (action === "set-tacos-base") {
-        const baseId = actionEl.dataset.baseId;
-        setTacosBase(baseId);
-      }
-
-      if (action === "toggle-tacos-meat") {
-        const meat = actionEl.dataset.meatName;
-        toggleTacosMeat(meat);
-      }
-
-      if (action === "toggle-tacos-sauce") {
-        const sauce = actionEl.dataset.sauceName;
-        toggleTacosSauce(sauce);
-      }
-
-      if (action === "toggle-tacos-veg") {
-        const veg = actionEl.dataset.veggie;
-        toggleTacosVeg(veg);
-      }
-
-      // 🆕 KAPSALOON ACTIONS
-      if (action === "set-kapsaloon-base") {
-        const baseId = actionEl.dataset.baseId;
-        setKapsaloonBase(baseId);
-      }
-
-      if (action === "toggle-kapsaloon-meat") {
-        const meat = actionEl.dataset.meatName;
-        toggleKapsaloonMeat(meat);
-      }
-
-      if (action === "toggle-kapsaloon-sauce") {
-        const sauce = actionEl.dataset.sauceName;
-        toggleKapsaloonSauce(sauce);
-      }
-
-      if (action === "inc-qty") {
-        const id = actionEl.dataset.lineId;
-        incrementLineQuantity(id);
-      }
-
-      if (action === "dec-qty") {
-        const id = actionEl.dataset.lineId;
-        decrementLineQuantity(id);
-      }
-
-      if (action === "set-main-sauce") {
-        const sauce = actionEl.dataset.sauceName;
-        if (sauce) {
-          setMainSauce(sauce);
-        }
-      }
-
-      if (action === "set-mode") {
-        setOrderMode(actionEl.dataset.modeId);
-      }
-
-      if (action === "reorder-last") {
-        reorderLastOrder();
-      }
-
-      if (action === "new-order") {
-        startNewOrder();
-      }
+      handleTicketAction(actionEl.dataset.ticketAction, actionEl);
     });
 
     // Sauvegarde locale des champs saisis
@@ -1662,6 +1557,118 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     );
     if (shareRestaurantBtn) {
       shareRestaurantBtn.addEventListener("click", shareTicketToRestaurant);
+    }
+  }
+
+  // Actions partagées entre le panneau ticket et l'assistant par étapes
+  function handleTicketAction(action, actionEl) {
+
+    if (action === "close") {
+      ticketPanel.classList.add("hidden");
+    }
+
+    if (action === "add-active-line") {
+      addActiveLineToTicket();
+    }
+
+    if (action === "remove-line") {
+      const id = actionEl.dataset.lineId;
+      removeTicketLine(id);
+    }
+
+    if (action === "toggle-supp") {
+      const sid = actionEl.dataset.suppId;
+      toggleSupplementOnActive(sid);
+    }
+
+    if (action === "toggle-ingredient") {
+      const ing = actionEl.dataset.ingredient;
+      toggleRemovedIngredientOnActive(ing);
+    }
+
+    if (action === "set-kids-plate") {
+      const plateId = actionEl.dataset.plateId;
+      if (activeLine && activeLine.categoryId === "menu-enfant") {
+        activeLine.kidsChoice = plateId;
+        renderTicketPanel();
+      }
+    }
+
+    if (action === "set-drink") {
+      const drinkId = actionEl.dataset.drinkId;
+      if (activeLine) {
+        activeLine.drinkChoice = drinkId;
+        renderTicketPanel();
+      }
+    }
+
+    if (action === "set-tacos-base") {
+      const baseId = actionEl.dataset.baseId;
+      setTacosBase(baseId);
+    }
+
+    if (action === "toggle-tacos-meat") {
+      const meat = actionEl.dataset.meatName;
+      toggleTacosMeat(meat);
+    }
+
+    if (action === "toggle-tacos-sauce") {
+      const sauce = actionEl.dataset.sauceName;
+      toggleTacosSauce(sauce);
+    }
+
+    if (action === "toggle-tacos-veg") {
+      const veg = actionEl.dataset.veggie;
+      toggleTacosVeg(veg);
+    }
+
+    // 🆕 KAPSALOON ACTIONS
+    if (action === "set-kapsaloon-base") {
+      const baseId = actionEl.dataset.baseId;
+      setKapsaloonBase(baseId);
+    }
+
+    if (action === "toggle-kapsaloon-meat") {
+      const meat = actionEl.dataset.meatName;
+      toggleKapsaloonMeat(meat);
+    }
+
+    if (action === "toggle-kapsaloon-sauce") {
+      const sauce = actionEl.dataset.sauceName;
+      toggleKapsaloonSauce(sauce);
+    }
+
+    if (action === "inc-qty") {
+      const id = actionEl.dataset.lineId;
+      incrementLineQuantity(id);
+    }
+
+    if (action === "dec-qty") {
+      const id = actionEl.dataset.lineId;
+      decrementLineQuantity(id);
+    }
+
+    if (action === "set-main-sauce") {
+      const sauce = actionEl.dataset.sauceName;
+      if (sauce) {
+        setMainSauce(sauce);
+      }
+    }
+
+    if (action === "set-mode") {
+      setOrderMode(actionEl.dataset.modeId);
+    }
+
+    if (action === "reorder-last") {
+      reorderLastOrder();
+    }
+
+    if (action === "new-order") {
+      startNewOrder();
+    }
+
+    if (action === "set-variant") {
+      setLineVariant(actionEl.dataset.variant);
     }
   }
 
@@ -2038,8 +2045,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
         kapsaloonSauces: []
       };
 
-      ticketPanel.classList.remove("hidden");
-      renderTicketPanel();
+      openWizard();
       return;
     }
 
@@ -2110,8 +2116,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       };
     }
 
-    ticketPanel.classList.remove("hidden");
-    renderTicketPanel();
+    openWizard();
   }
   // ==========================================================================
   // GESTION DES LIGNES DU TICKET
@@ -2163,10 +2168,11 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
     const unitPrice = activeLine.lineTotal || activeLine.basePrice || 0;
 
+    const qty = activeLine.quantity > 0 ? activeLine.quantity : 1;
     const newLine = {
       ...activeLine,
-      quantity: activeLine.quantity > 0 ? activeLine.quantity : 1,
-      lineTotal: unitPrice,
+      quantity: qty,
+      lineTotal: unitPrice * qty,
     };
 
     const existing = ticketLines.find((l) => isSameLineConfig(l, newLine));
@@ -2501,432 +2507,6 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       });
     }
 
-    if (activeLine) {
-      const supList = asArray(
-        getDefaultSuppForCategory(activeLine.categoryId)
-      );
-      const baseIngr =
-        activeLine.categoryId === "tacos" || activeLine.categoryId === "kapsaloon"
-          ? []
-          : asArray(activeLine.baseIngredients).filter(isRemovableIngredient);
-      const activeSupps = asArray(activeLine.supplements);
-      const activeRemoved = asArray(activeLine.removedIngredients);
-
-      const block = document.createElement("div");
-      block.className = "border rounded-2xl p-3 bg-slate-50 space-y-3 text-xs";
-
-      const variantLabel = activeLine.variant === "menu" ? "menu" : "seul";
-
-      // 🆕 BLOC KAPSALOON HTML
-      let kapsaloonHtml = "";
-      if (activeLine.categoryId === "kapsaloon") {
-        const found = findProductById(activeLine.productId);
-        const kapsaloonCfg = found?.item?.kapsaloonConfig || {};
-        const bases = Array.isArray(kapsaloonCfg.bases) ? kapsaloonCfg.bases : [];
-        const meats = Array.isArray(kapsaloonCfg.meats) ? kapsaloonCfg.meats : [];
-        const sauces = Array.isArray(kapsaloonCfg.sauces) ? kapsaloonCfg.sauces : [];
-
-        const selectedBaseId = activeLine.kapsaloonBaseId;
-        const selectedMeats = asArray(activeLine.kapsaloonMeats);
-        const selectedSauces = asArray(activeLine.kapsaloonSauces);
-
-        kapsaloonHtml = `
-          <div class="space-y-3">
-            <div class="space-y-2">
-              <p class="text-[11px] text-slate-500">Taille :</p>
-              <div class="flex flex-wrap gap-1">
-                ${bases
-                  .map((b) => {
-                    const isOn = b.id === selectedBaseId;
-                    return `
-                      <button type="button"
-                              data-ticket-action="set-kapsaloon-base"
-                              data-base-id="${b.id}"
-                              class="px-2 py-1 rounded-full border text-[11px] ${
-                                isOn
-                                  ? "bg-brand text-white border-brand"
-                                  : "bg-white text-slate-700 border-slate-200"
-                              }">
-                        ${b.label}
-                      </button>
-                    `;
-                  })
-                  .join("")}
-              </div>
-            </div>
-
-            <div class="space-y-2">
-              <p class="text-[11px] text-slate-500">Viandes :</p>
-              <div class="flex flex-wrap gap-1">
-                ${meats
-                  .map((m) => {
-                    const isOn = selectedMeats.includes(m);
-                    return `
-                      <button type="button"
-                              data-ticket-action="toggle-kapsaloon-meat"
-                              data-meat-name="${m}"
-                              class="px-2 py-1 rounded-full border text-[11px] ${
-                                isOn
-                                  ? "bg-slate-900 text-white border-slate-900"
-                                  : "bg-white text-slate-700 border-slate-200"
-                              }">
-                        ${m}
-                      </button>
-                    `;
-                  })
-                  .join("")}
-              </div>
-            </div>
-
-            <div class="space-y-2">
-              <p class="text-[11px] text-slate-500">Sauces (max. 2) :</p>
-              <div class="flex flex-wrap gap-1">
-                ${sauces
-                  .map((sName) => {
-                    const isOn = selectedSauces.includes(sName);
-                    return `
-                      <button type="button"
-                              data-ticket-action="toggle-kapsaloon-sauce"
-                              data-sauce-name="${sName}"
-                              class="px-2 py-1 rounded-full border text-[11px] ${
-                                isOn
-                                  ? "bg-brand text-white border-brand"
-                                  : "bg-white text-slate-700 border-slate-200"
-                              }">
-                        ${sName}
-                      </button>
-                    `;
-                  })
-                  .join("")}
-              </div>
-            </div>
-          </div>
-        `;
-      }
-
-      let tacosHtml = "";
-      if (activeLine.categoryId === "tacos") {
-        const found = findProductById(activeLine.productId);
-        const tacosCfg = found?.item?.tacosConfig || {};
-        const bases = Array.isArray(tacosCfg.bases) ? tacosCfg.bases : [];
-        const meats = Array.isArray(tacosCfg.meats) ? tacosCfg.meats : [];
-        const sauces = Array.isArray(tacosCfg.sauces) ? tacosCfg.sauces : [];
-
-        const selectedBaseId = activeLine.tacosBaseId;
-        const selectedMeats = asArray(activeLine.tacosMeats);
-        const selectedSauces = asArray(activeLine.tacosSauces);
-        const crudites = Array.isArray(tacosCfg.freeCrudites) ? tacosCfg.freeCrudites : [];
-        const selectedVeggies = asArray(activeLine.tacosVeggies);
-
-        tacosHtml = `
-          <div class="space-y-3">
-            <div class="space-y-2">
-              <p class="text-[11px] text-slate-500">Taille :</p>
-              <div class="flex flex-wrap gap-1">
-                ${bases
-                  .map((b) => {
-                    const isOn = b.id === selectedBaseId;
-                    return `
-                      <button type="button"
-                              data-ticket-action="set-tacos-base"
-                              data-base-id="${b.id}"
-                              class="px-2 py-1 rounded-full border text-[11px] ${
-                                isOn
-                                  ? "bg-brand text-white border-brand"
-                                  : "bg-white text-slate-700 border-slate-200"
-                              }">
-                        ${b.label}
-                      </button>
-                    `;
-                  })
-                  .join("")}
-              </div>
-            </div>
-
-            <div class="space-y-2">
-              <p class="text-[11px] text-slate-500">Viandes :</p>
-              <div class="flex flex-wrap gap-1">
-                ${meats
-                  .map((m) => {
-                    const isOn = selectedMeats.includes(m);
-                    return `
-                      <button type="button"
-                              data-ticket-action="toggle-tacos-meat"
-                              data-meat-name="${m}"
-                              class="px-2 py-1 rounded-full border text-[11px] ${
-                                isOn
-                                  ? "bg-slate-900 text-white border-slate-900"
-                                  : "bg-white text-slate-700 border-slate-200"
-                              }">
-                        ${m}
-                      </button>
-                    `;
-                  })
-                  .join("")}
-              </div>
-            </div>
-
-            <div class="space-y-2">
-              <p class="text-[11px] text-slate-500">Sauces (max. 2) :</p>
-              <div class="flex flex-wrap gap-1">
-                ${sauces
-                  .map((sName) => {
-                    const isOn = selectedSauces.includes(sName);
-                    return `
-                      <button type="button"
-                              data-ticket-action="toggle-tacos-sauce"
-                              data-sauce-name="${sName}"
-                              class="px-2 py-1 rounded-full border text-[11px] ${
-                                isOn
-                                  ? "bg-brand text-white border-brand"
-                                  : "bg-white text-slate-700 border-slate-200"
-                              }">
-                        ${sName}
-                      </button>
-                    `;
-                  })
-                  .join("")}
-              </div>
-            </div>
-
-            ${
-              crudites.length
-                ? `
-            <div class="space-y-2">
-              <p class="text-[11px] text-slate-500">Crudités (incluses) :</p>
-              <div class="flex flex-wrap gap-1">
-                ${crudites
-                  .map((v) => {
-                    const isOn = selectedVeggies.includes(v);
-                    return `
-                      <button type="button"
-                              data-ticket-action="toggle-tacos-veg"
-                              data-veggie="${v}"
-                              class="px-2 py-1 rounded-full border text-[11px] ${
-                                isOn
-                                  ? "bg-brand text-white border-brand"
-                                  : "bg-white text-slate-700 border-slate-200"
-                              }">
-                        ${v}
-                      </button>
-                    `;
-                  })
-                  .join("")}
-              </div>
-            </div>`
-                : ""
-            }
-          </div>
-        `;
-      }
-
-      let mainSauceHtml = "";
-      const sauceCategories = [
-        "burgers",
-        "sandwichs",
-        "paninis",
-        "signatures",
-        "galettes",
-      ];
-
-      if (
-        sauceCategories.includes(activeLine.categoryId) &&
-        Array.isArray(activeLine.availableSauces) &&
-        activeLine.availableSauces.length
-      ) {
-        const selectedSauces = Array.isArray(activeLine.mainSauce)
-          ? activeLine.mainSauce
-          : activeLine.mainSauce
-          ? [activeLine.mainSauce]
-          : [];
-
-        mainSauceHtml = `
-          <div class="space-y-2">
-            <p class="text-[11px] text-slate-500 font-semibold">Sauce au choix :</p>
-            <div class="flex flex-wrap gap-1">
-              ${activeLine.availableSauces
-                .map((sName) => {
-                  const isOn = selectedSauces.includes(sName);
-                  return `
-                    <button type="button"
-                            data-ticket-action="set-main-sauce"
-                            data-sauce-name="${sName}"
-                            class="px-2 py-1 rounded-full border text-[11px] ${
-                              isOn
-                                ? "bg-brand text-white border-brand"
-                                : "bg-white text-slate-700 border-slate-200"
-                            }">
-                      ${sName}
-                    </button>
-                  `;
-                })
-                .join("")}
-            </div>
-          </div>
-        `;
-      }
-
-      let supplHtml = "";
-      if (supList.length) {
-        supplHtml = `
-          <div class="space-y-2">
-            <p class="text-[11px] text-slate-500">Suppléments :</p>
-            <div class="flex flex-wrap gap-1">
-              ${supList
-                .map((s) => {
-                  const isOn = activeSupps.includes(s.id);
-                  return `
-                    <button type="button"
-                            data-ticket-action="toggle-supp"
-                            data-supp-id="${s.id}"
-                            class="px-2 py-1 rounded-full border text-[11px] ${
-                              isOn
-                                ? "bg-brand text-white border-brand"
-                                : "bg-white text-slate-700 border-slate-200"
-                            }">
-                      ${s.name} <span class="opacity-70">+${s.price.toFixed(
-                        2
-                      )}€</span>
-                    </button>
-                  `;
-                })
-                .join("")}
-            </div>
-          </div>
-        `;
-      }
-
-      let ingrHtml = "";
-      if (baseIngr.length) {
-        ingrHtml = `
-          <div class="space-y-2">
-            <p class="text-[11px] text-slate-500">Ingrédients à enlever :</p>
-            <div class="flex flex-wrap gap-1">
-              ${baseIngr
-                .map((ing) => {
-                  const isOff = activeRemoved.includes(ing);
-                  return `
-                    <button type="button"
-                            data-ticket-action="toggle-ingredient"
-                            data-ingredient="${ing}"
-                            class="px-2 py-1 rounded-full border text-[11px] ${
-                              isOff
-                                ? "bg-slate-900 text-white border-slate-900"
-                                : "bg-white text-slate-700 border-slate-200"
-                            }">
-                      Sans ${ing}
-                    </button>
-                  `;
-                })
-                .join("")}
-            </div>
-          </div>
-        `;
-      }
-
-      let drinkHtml = "";
-
-      if (
-        activeLine.variant === "menu" &&
-        activeLine.categoryId !== "menu-enfant"
-      ) {
-        const drinkCat = (cfg.menu.categories || []).find(
-          (c) => c.id && c.id.toLowerCase().includes("boisson")
-        );
-
-        if (drinkCat && Array.isArray(drinkCat.items)) {
-          drinkHtml = `
-            <div class="space-y-2">
-              <p class="text-[11px] text-slate-500">Boisson incluse :</p>
-              <div class="flex flex-wrap gap-1">
-                ${drinkCat.items
-                  .map((d) => {
-                    const isOn = activeLine.drinkChoice === d.id;
-                    return `
-                      <button type="button"
-                              data-ticket-action="set-drink"
-                              data-drink-id="${d.id}"
-                              class="px-2 py-1 rounded-full border text-[11px] ${
-                                isOn
-                                  ? "bg-brand text-white border-brand"
-                                  : "bg-white text-slate-700 border-slate-200"
-                              }">
-                        ${d.name}
-                      </button>
-                    `;
-                  })
-                  .join("")}
-              </div>
-            </div>
-          `;
-        }
-      }
-
-      if (activeLine.categoryId === "menu-enfant") {
-        const found = findProductById(activeLine.productId);
-        const kidsOpts = found?.item?.kidsOptions || [];
-
-        if (kidsOpts.length) {
-          const kidsBlock = document.createElement("div");
-          kidsBlock.className = "space-y-2";
-
-          kidsBlock.innerHTML = `
-            <p class="text-[11px] text-slate-500">Plat du menu :</p>
-            <div class="flex flex-wrap gap-1">
-              ${kidsOpts
-                .map((opt) => {
-                  const selected = activeLine.kidsChoice === opt.id;
-                  return `
-                    <button type="button"
-                      data-ticket-action="set-kids-plate"
-                      data-plate-id="${opt.id}"
-                      class="px-2 py-1 rounded-full border text-[11px] ${
-                        selected
-                          ? "bg-brand text-white border-brand"
-                          : "bg-white text-slate-700 border-slate-200"
-                      }">
-                      ${opt.name}
-                    </button>
-                  `;
-                })
-                .join("")}
-            </div>
-          `;
-
-          body.appendChild(kidsBlock);
-        }
-      }
-
-      block.innerHTML = `
-        <p class="text-[11px] uppercase tracking-wide text-slate-500">En cours de personnalisation</p>
-
-        <p class="font-semibold text-sm">
-          ${activeLine.productName}
-          <span class="text-slate-500">(${variantLabel})</span>
-        </p>
-
-        ${kapsaloonHtml}
-        ${tacosHtml}
-        ${mainSauceHtml}
-        ${supplHtml}
-        ${ingrHtml}
-        ${drinkHtml}
-
-        <div class="flex items-center justify-between pt-1">
-          <span class="font-semibold text-sm">Sous-total : ${activeLine.lineTotal.toFixed(
-            2
-          )} €</span>
-
-          <button type="button"
-                  class="px-3 py-1.5 rounded-full bg-brand text-white text-xs font-semibold"
-                  data-ticket-action="add-active-line">
-            Ajouter au ticket
-          </button>
-        </div>
-      `;
-
-      body.appendChild(block);
-    }
 
     if (!safeLines.length && !activeLine) {
       const empty = document.createElement("div");
@@ -2949,6 +2529,15 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
     renderOrderMeta();
     saveTicketState();
+
+    const count = safeLines.reduce((n, l) => n + (l.quantity > 0 ? l.quantity : 1), 0);
+    const badge = ticketToggle ? ticketToggle.querySelector("#ticket-count") : null;
+    if (badge) {
+      badge.textContent = String(count);
+      badge.classList.toggle("hidden", count === 0);
+    }
+
+    if (wizardOpen) renderWizard();
   }
 
   // ==========================================================================
@@ -3241,7 +2830,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       const inputs = readTicketInputs();
       const state = {
         lines: asArray(ticketLines),
-        activeLine: activeLine || null,
+        activeLine: null,
         meta: orderMeta,
         sentAt: ticketSent ? ticketSent.at : null,
         name: inputs.name,
@@ -3550,6 +3139,566 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
   }
 
   // ==========================================================================
+  // ASSISTANT DE PERSONNALISATION – parcours par étapes (façon borne)
+  // ==========================================================================
+  var wizardEl = null;
+  var wizardStep = 0;
+  var wizardSteps = [];
+  var wizardOpen = false;
+
+  const SAUCE_CATEGORIES = [
+    "burgers",
+    "sandwichs",
+    "paninis",
+    "signatures",
+    "galettes",
+  ];
+
+  const MEAT_ICONS = [
+    ["hach", "🥩"],
+    ["poulet", "🍗"],
+    ["chicken", "🍗"],
+    ["kebab", "🥙"],
+    ["tender", "🍗"],
+    ["nugget", "🍗"],
+    ["merguez", "🌭"],
+    ["cordon", "🧀"],
+    ["steak", "🥩"],
+    ["fish", "🐟"],
+    ["poisson", "🐟"],
+  ];
+
+  function iconFor(label) {
+    const k = (label || "").toLowerCase();
+    const hit = MEAT_ICONS.find(([key]) => k.includes(key));
+    return hit ? hit[1] : "";
+  }
+
+  function getMaxSauces() {
+    return (cfg.ordering && cfg.ordering.maxSauces) || 2;
+  }
+
+  function getLineItem(line) {
+    const found = line ? findProductById(line.productId) : null;
+    return found ? found.item : {};
+  }
+
+  function lineHasMenuOption(line) {
+    const item = getLineItem(line);
+    return (
+      line.categoryId !== "menu-enfant" &&
+      item.priceMenu != null &&
+      (item.priceSolo ?? item.price) != null
+    );
+  }
+
+  function buildWizardSteps(line) {
+    const item = getLineItem(line);
+    const cat = line.categoryId;
+    const steps = [];
+
+    if (lineHasMenuOption(line)) {
+      steps.push({
+        id: "variant",
+        label: "Formule",
+        title: "Seul ou en menu ?",
+        subtitle: "Le menu comprend les frites et une boisson.",
+      });
+    }
+
+    if (cat === "tacos" && item.tacosConfig) {
+      steps.push({ id: "tacos-size", label: "Taille", title: "Choisis ta taille" });
+      steps.push({ id: "tacos-meats", label: "Viandes", title: "Choisis tes viandes" });
+      steps.push({ id: "tacos-sauces", label: "Sauces", title: "Choisis tes sauces" });
+      if (asArray(item.tacosConfig.freeCrudites).length) {
+        steps.push({
+          id: "tacos-veg",
+          label: "Crudités",
+          title: "Tes crudités",
+          subtitle: "Incluses. Décoche ce que tu ne veux pas.",
+        });
+      }
+    } else if (cat === "kapsaloon" && item.kapsaloonConfig) {
+      if (asArray(item.kapsaloonConfig.bases).length > 1) {
+        steps.push({ id: "kaps-size", label: "Taille", title: "Choisis ta taille" });
+      }
+      steps.push({ id: "kaps-meats", label: "Viandes", title: "Choisis tes viandes" });
+      steps.push({ id: "kaps-sauces", label: "Sauces", title: "Choisis tes sauces" });
+    } else if (SAUCE_CATEGORIES.includes(cat) && asArray(line.availableSauces).length) {
+      steps.push({
+        id: "main-sauce",
+        label: "Sauce",
+        title: "Choisis ta sauce",
+        subtitle: `Jusqu'à ${getMaxSauces()} sauces, ou aucune.`,
+      });
+    }
+
+    if (cat === "menu-enfant" && asArray(item.kidsOptions).length) {
+      steps.push({ id: "kids", label: "Plat", title: "Choisis le plat du menu" });
+    }
+
+    if (getDefaultSuppForCategory(cat).length) {
+      steps.push({
+        id: "supplements",
+        label: "Extras",
+        title: "Un petit extra ?",
+        subtitle: "Optionnel.",
+      });
+    }
+
+    const removable =
+      cat === "tacos" || cat === "kapsaloon"
+        ? []
+        : asArray(line.baseIngredients).filter(isRemovableIngredient);
+    if (removable.length) {
+      steps.push({
+        id: "remove",
+        label: "Sans",
+        title: "Quelque chose à enlever ?",
+        subtitle: "Optionnel.",
+      });
+    }
+
+    if (line.variant === "menu" && cat !== "menu-enfant" && getMenuDrinks().length) {
+      steps.push({ id: "drink", label: "Boisson", title: "Ta boisson", subtitle: "Incluse dans le menu." });
+    }
+
+    steps.push({ id: "recap", label: "Récap", title: "On récapitule" });
+    return steps;
+  }
+
+  function stepValidation(step) {
+    if (!activeLine || !step) return { ok: false, hint: "" };
+    switch (step.id) {
+      case "tacos-meats": {
+        const max = getTacosMaxMeatsForLine(activeLine);
+        const n = asArray(activeLine.tacosMeats).length;
+        return n ? { ok: true, hint: `${n}/${max} viande${max > 1 ? "s" : ""}` } : { ok: false, hint: "Choisis au moins une viande." };
+      }
+      case "kaps-meats": {
+        const max = getKapsaloonMaxMeatsForLine(activeLine);
+        const n = asArray(activeLine.kapsaloonMeats).length;
+        return n ? { ok: true, hint: `${n}/${max} viande${max > 1 ? "s" : ""}` } : { ok: false, hint: "Choisis au moins une viande." };
+      }
+      case "kids":
+        return activeLine.kidsChoice ? { ok: true, hint: "" } : { ok: false, hint: "Choisis un plat." };
+      case "drink":
+        return activeLine.drinkChoice ? { ok: true, hint: "" } : { ok: false, hint: "Choisis ta boisson incluse." };
+      default:
+        return { ok: true, hint: "" };
+    }
+  }
+
+  function setLineVariant(variant) {
+    if (!activeLine || !lineHasMenuOption(activeLine)) return;
+    const item = getLineItem(activeLine);
+    const wasMenu = activeLine.variant === "menu";
+    activeLine.variant = variant;
+
+    if (activeLine.categoryId === "tacos" && item.tacosConfig) {
+      const base = getTacosBaseForLine(activeLine);
+      const up = (cfg.tacos && cfg.tacos.menuUpcharge) || 2;
+      activeLine.basePrice = base ? (variant === "menu" ? base.price + up : base.price) : activeLine.basePrice;
+      activeLine.lineTotal = activeLine.basePrice + calculateTacosExtras(activeLine);
+    } else {
+      activeLine.basePrice = variant === "menu" ? item.priceMenu : item.priceSolo ?? item.price;
+      activeLine.lineTotal = activeLine.basePrice + calculateTacosExtras(activeLine);
+    }
+    activeLine.forbiddenSupp = variant === "menu" ? [] : ["cheddar_frites", "boisson_menu"];
+    activeLine.availableDrinks = variant === "menu" ? getMenuDrinks() : [];
+    if (variant !== "menu") activeLine.drinkChoice = null;
+
+    if (wasMenu !== (variant === "menu")) {
+      wizardSteps = buildWizardSteps(activeLine);
+      wizardStep = Math.min(wizardStep, wizardSteps.length - 1);
+    }
+    renderTicketPanel();
+  }
+
+  function ensureWizardShell() {
+    if (wizardEl) return;
+    wizardEl = document.createElement("div");
+    wizardEl.id = "product-wizard";
+    wizardEl.className = "wizard hidden";
+    wizardEl.innerHTML = `
+      <div class="wizard-backdrop" data-wizard-action="close"></div>
+      <div class="wizard-sheet" role="dialog" aria-modal="true" aria-labelledby="wizard-title">
+        <header class="wizard-head">
+          <img id="wizard-img" class="wizard-img" alt="" />
+          <div class="min-w-0 flex-1">
+            <p id="wizard-product" class="wizard-product"></p>
+            <p id="wizard-variant" class="wizard-variant"></p>
+          </div>
+          <button type="button" class="wizard-close" data-wizard-action="close" aria-label="Fermer">×</button>
+        </header>
+        <ol id="wizard-progress" class="wizard-progress" aria-label="Étapes"></ol>
+        <div id="wizard-body" class="wizard-body">
+          <h3 id="wizard-title" class="wizard-title"></h3>
+          <p id="wizard-subtitle" class="wizard-subtitle"></p>
+          <div id="wizard-options" class="wizard-options"></div>
+        </div>
+        <footer class="wizard-foot">
+          <p id="wizard-hint" class="wizard-hint"></p>
+          <div class="wizard-foot-row">
+            <div class="wizard-price">
+              <span class="wizard-price-label">Sous-total</span>
+              <strong id="wizard-price">0,00 €</strong>
+            </div>
+            <div class="wizard-buttons">
+              <button type="button" id="wizard-back" class="wizard-btn secondary" data-wizard-action="back">Retour</button>
+              <button type="button" id="wizard-next" class="wizard-btn primary" data-wizard-action="next">Suivant</button>
+            </div>
+          </div>
+        </footer>
+      </div>`;
+    document.body.appendChild(wizardEl);
+
+    wizardEl.addEventListener("click", (e) => {
+      const w = e.target.closest("[data-wizard-action]");
+      if (w) {
+        const action = w.dataset.wizardAction;
+        if (action === "close") closeWizard();
+        if (action === "back") wizardGo(wizardStep - 1);
+        if (action === "next") wizardNext();
+        if (action === "goto") {
+          const i = parseInt(w.dataset.step, 10);
+          if (!isNaN(i) && i < wizardStep) wizardGo(i);
+        }
+        if (action === "qty-inc" && activeLine) {
+          activeLine.quantity = (activeLine.quantity > 0 ? activeLine.quantity : 1) + 1;
+          renderWizard();
+        }
+        if (action === "qty-dec" && activeLine) {
+          activeLine.quantity = Math.max(1, (activeLine.quantity > 0 ? activeLine.quantity : 1) - 1);
+          renderWizard();
+        }
+        return;
+      }
+      const a = e.target.closest("[data-ticket-action]");
+      if (a) handleTicketAction(a.dataset.ticketAction, a);
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && wizardOpen) closeWizard();
+    });
+  }
+
+  function openWizard() {
+    if (!activeLine) return;
+    ensureWizardShell();
+    if (activeLine.categoryId === "tacos") {
+      const item = getLineItem(activeLine);
+      if (!asArray(activeLine.tacosVeggies).length && item.tacosConfig) {
+        activeLine.tacosVeggies = asArray(item.tacosConfig.freeCrudites).slice();
+      }
+    }
+    if (!(activeLine.quantity > 0)) activeLine.quantity = 1;
+    wizardSteps = buildWizardSteps(activeLine);
+    wizardStep = 0;
+    wizardOpen = true;
+    wizardEl.classList.remove("hidden");
+    document.body.classList.add("wizard-lock");
+    renderWizard();
+  }
+
+  function closeWizard() {
+    if (!wizardEl) return;
+    wizardOpen = false;
+    wizardEl.classList.add("hidden");
+    document.body.classList.remove("wizard-lock");
+    activeLine = null;
+    renderTicketPanel();
+  }
+
+  function wizardGo(i) {
+    if (i < 0 || i >= wizardSteps.length) return;
+    wizardStep = i;
+    renderWizard(true);
+  }
+
+  function wizardNext() {
+    const step = wizardSteps[wizardStep];
+    const v = stepValidation(step);
+    if (!v.ok) {
+      const hint = wizardEl.querySelector("#wizard-hint");
+      if (hint) {
+        hint.textContent = v.hint;
+        hint.classList.add("shake");
+        setTimeout(() => hint.classList.remove("shake"), 400);
+      }
+      return;
+    }
+    if (wizardStep >= wizardSteps.length - 1) {
+      const qty = activeLine.quantity > 0 ? activeLine.quantity : 1;
+      const name = activeLine.productName;
+      addActiveLineToTicket();
+      if (activeLine) return; // validation refusée
+      wizardOpen = false;
+      wizardEl.classList.add("hidden");
+      document.body.classList.remove("wizard-lock");
+      showToast({
+        icon: "🎟️",
+        type: "success",
+        title: "Ajouté au ticket",
+        message: `${qty > 1 ? qty + " × " : ""}${name}`,
+        duration: 2500,
+      });
+      if (ticketToggle) {
+        ticketToggle.classList.add("bump");
+        setTimeout(() => ticketToggle.classList.remove("bump"), 600);
+      }
+      return;
+    }
+    wizardStep += 1;
+    renderWizard(true);
+  }
+
+  function optionCard(opts) {
+    const { action, data, label, sub, price, on, off, icon } = opts;
+    const attrs = Object.keys(data || {})
+      .map((k) => `data-${k}="${String(data[k]).replace(/"/g, "&quot;")}"`)
+      .join(" ");
+    return `
+      <button type="button"
+              class="wizard-option${on ? " on" : ""}${off ? " off" : ""}"
+              data-ticket-action="${action}" ${attrs}
+              aria-pressed="${on ? "true" : "false"}">
+        <span class="wizard-option-check" aria-hidden="true"></span>
+        ${icon ? `<span class="wizard-option-icon">${icon}</span>` : ""}
+        <span class="wizard-option-text">
+          <span class="wizard-option-label">${label}</span>
+          ${sub ? `<span class="wizard-option-sub">${sub}</span>` : ""}
+        </span>
+        ${price ? `<span class="wizard-option-price">${price}</span>` : ""}
+      </button>`;
+  }
+
+  function lineDetailsForRecap(line) {
+    const out = [];
+    const item = getLineItem(line);
+    if (line.categoryId === "tacos") {
+      const base = getTacosBaseForLine(line);
+      if (base) out.push(["Taille", base.label]);
+      if (asArray(line.tacosMeats).length) out.push(["Viandes", line.tacosMeats.join(", ")]);
+      out.push(["Sauces", asArray(line.tacosSauces).length ? line.tacosSauces.join(", ") : "sans sauce"]);
+      if (asArray(item.tacosConfig && item.tacosConfig.freeCrudites).length) {
+        out.push(["Crudités", asArray(line.tacosVeggies).length ? line.tacosVeggies.join(", ") : "aucune"]);
+      }
+    } else if (line.categoryId === "kapsaloon") {
+      const base = getKapsaloonBaseForLine(line);
+      if (base) out.push(["Taille", base.label]);
+      if (asArray(line.kapsaloonMeats).length) out.push(["Viandes", line.kapsaloonMeats.join(", ")]);
+      out.push(["Sauces", asArray(line.kapsaloonSauces).length ? line.kapsaloonSauces.join(", ") : "sans sauce"]);
+    } else if (SAUCE_CATEGORIES.includes(line.categoryId) && asArray(line.availableSauces).length) {
+      const s = Array.isArray(line.mainSauce) ? line.mainSauce : line.mainSauce ? [line.mainSauce] : [];
+      out.push(["Sauce", s.length ? s.join(", ") : "sans sauce"]);
+    }
+    if (line.categoryId === "menu-enfant" && line.kidsChoice) {
+      const opt = asArray(item.kidsOptions).find((o) => o.id === line.kidsChoice);
+      if (opt) out.push(["Plat", opt.name]);
+    }
+    if (asArray(line.supplements).length && cfg.supplements && cfg.supplements.catalog) {
+      const names = line.supplements.map((id) => cfg.supplements.catalog[id] && cfg.supplements.catalog[id].name).filter(Boolean);
+      if (names.length) out.push(["Extras", names.join(", ")]);
+    }
+    if (asArray(line.removedIngredients).length) out.push(["Sans", line.removedIngredients.join(", ")]);
+    if (line.variant === "menu" && line.drinkChoice) {
+      const d = getMenuDrinks().find((x) => x.id === line.drinkChoice);
+      out.push(["Boisson", d ? d.name : line.drinkChoice]);
+    }
+    return out;
+  }
+
+  function renderWizardOptions(step) {
+    const line = activeLine;
+    const item = getLineItem(line);
+    const cards = [];
+
+    switch (step.id) {
+      case "variant": {
+        const solo = item.priceSolo ?? item.price;
+        cards.push(optionCard({ action: "set-variant", data: { variant: "solo" }, label: "Seul", sub: "Le produit uniquement", price: formatEuro(solo), on: line.variant !== "menu", icon: "🍔" }));
+        cards.push(optionCard({ action: "set-variant", data: { variant: "menu" }, label: "En menu", sub: "Avec frites + boisson", price: formatEuro(item.priceMenu), on: line.variant === "menu", icon: "🍟" }));
+        break;
+      }
+      case "tacos-size":
+        asArray(item.tacosConfig.bases).forEach((b) =>
+          cards.push(optionCard({ action: "set-tacos-base", data: { "base-id": b.id }, label: b.label, sub: `${b.meats} viande${b.meats > 1 ? "s" : ""}`, price: formatEuro(line.variant === "menu" ? b.price + ((cfg.tacos && cfg.tacos.menuUpcharge) || 2) : b.price), on: b.id === line.tacosBaseId }))
+        );
+        break;
+      case "kaps-size":
+        asArray(item.kapsaloonConfig.bases).forEach((b) =>
+          cards.push(optionCard({ action: "set-kapsaloon-base", data: { "base-id": b.id }, label: b.label, price: formatEuro(b.price), on: b.id === line.kapsaloonBaseId }))
+        );
+        break;
+      case "tacos-meats": {
+        const max = getTacosMaxMeatsForLine(line);
+        const sel = asArray(line.tacosMeats);
+        asArray(item.tacosConfig.meats).forEach((m) =>
+          cards.push(optionCard({ action: "toggle-tacos-meat", data: { "meat-name": m }, label: capitalize(m), on: sel.includes(m), off: !sel.includes(m) && sel.length >= max, icon: iconFor(m) }))
+        );
+        break;
+      }
+      case "kaps-meats": {
+        const max = getKapsaloonMaxMeatsForLine(line);
+        const sel = asArray(line.kapsaloonMeats);
+        asArray(item.kapsaloonConfig.meats).forEach((m) =>
+          cards.push(optionCard({ action: "toggle-kapsaloon-meat", data: { "meat-name": m }, label: capitalize(m), on: sel.includes(m), off: !sel.includes(m) && sel.length >= max, icon: iconFor(m) }))
+        );
+        break;
+      }
+      case "tacos-sauces": {
+        const sel = asArray(line.tacosSauces);
+        asArray(item.tacosConfig.sauces).forEach((s) =>
+          cards.push(optionCard({ action: "toggle-tacos-sauce", data: { "sauce-name": s }, label: capitalize(s), on: sel.includes(s), off: !sel.includes(s) && sel.length >= getMaxSauces() }))
+        );
+        break;
+      }
+      case "kaps-sauces": {
+        const sel = asArray(line.kapsaloonSauces);
+        asArray(item.kapsaloonConfig.sauces).forEach((s) =>
+          cards.push(optionCard({ action: "toggle-kapsaloon-sauce", data: { "sauce-name": s }, label: capitalize(s), on: sel.includes(s), off: !sel.includes(s) && sel.length >= getMaxSauces() }))
+        );
+        break;
+      }
+      case "tacos-veg": {
+        const sel = asArray(line.tacosVeggies);
+        asArray(item.tacosConfig.freeCrudites).forEach((v) =>
+          cards.push(optionCard({ action: "toggle-tacos-veg", data: { veggie: v }, label: capitalize(v), on: sel.includes(v), price: "inclus" }))
+        );
+        break;
+      }
+      case "main-sauce": {
+        const sel = Array.isArray(line.mainSauce) ? line.mainSauce : line.mainSauce ? [line.mainSauce] : [];
+        asArray(line.availableSauces).forEach((s) =>
+          cards.push(optionCard({ action: "set-main-sauce", data: { "sauce-name": s }, label: capitalize(s), on: sel.includes(s), off: !sel.includes(s) && sel.length >= getMaxSauces() }))
+        );
+        break;
+      }
+      case "kids":
+        asArray(item.kidsOptions).forEach((o) =>
+          cards.push(optionCard({ action: "set-kids-plate", data: { "plate-id": o.id }, label: o.name, on: line.kidsChoice === o.id, icon: iconFor(o.name) }))
+        );
+        break;
+      case "supplements": {
+        const sel = asArray(line.supplements);
+        getDefaultSuppForCategory(line.categoryId).forEach((s) =>
+          cards.push(optionCard({ action: "toggle-supp", data: { "supp-id": s.id }, label: s.name, price: "+" + formatEuro(s.price), on: sel.includes(s.id) }))
+        );
+        break;
+      }
+      case "remove": {
+        const sel = asArray(line.removedIngredients);
+        asArray(line.baseIngredients).filter(isRemovableIngredient).forEach((ing) =>
+          cards.push(optionCard({ action: "toggle-ingredient", data: { ingredient: ing }, label: `Sans ${ing}`, on: sel.includes(ing) }))
+        );
+        break;
+      }
+      case "drink":
+        getMenuDrinks().forEach((d) =>
+          cards.push(optionCard({ action: "set-drink", data: { "drink-id": d.id }, label: d.name, price: "inclus", on: line.drinkChoice === d.id, icon: "🥤" }))
+        );
+        break;
+      case "recap": {
+        const qty = line.quantity > 0 ? line.quantity : 1;
+        const details = lineDetailsForRecap(line);
+        return `
+          <div class="wizard-recap">
+            <p class="wizard-recap-name">${line.productName} <span>(${line.variant === "menu" ? "menu" : "seul"})</span></p>
+            ${
+              details.length
+                ? `<dl class="wizard-recap-list">${details
+                    .map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`)
+                    .join("")}</dl>`
+                : `<p class="wizard-subtitle">Aucune option, c'est simple et rapide.</p>`
+            }
+            <div class="wizard-qty">
+              <span>Quantité</span>
+              <div class="wizard-qty-ctrl">
+                <button type="button" data-wizard-action="qty-dec" aria-label="Moins">−</button>
+                <strong>${qty}</strong>
+                <button type="button" data-wizard-action="qty-inc" aria-label="Plus">+</button>
+              </div>
+            </div>
+            <p class="wizard-recap-unit">${formatEuro(line.lineTotal)} l'unité</p>
+          </div>`;
+      }
+      default:
+        break;
+    }
+    return `<div class="wizard-grid">${cards.join("")}</div>`;
+  }
+
+  function renderWizard(animate) {
+    if (!wizardEl || !wizardOpen || !activeLine) return;
+    if (!wizardSteps.length) wizardSteps = buildWizardSteps(activeLine);
+    if (wizardStep >= wizardSteps.length) wizardStep = wizardSteps.length - 1;
+    const step = wizardSteps[wizardStep];
+    const line = activeLine;
+    const item = getLineItem(line);
+
+    const img = wizardEl.querySelector("#wizard-img");
+    if (img) {
+      const src = item.image || (item.imageKey && cfg.assets && cfg.assets.menuImages && cfg.assets.menuImages[item.imageKey]);
+      if (src) {
+        img.src = src;
+        img.alt = line.productName;
+        img.style.display = "";
+      } else {
+        img.style.display = "none";
+      }
+    }
+    wizardEl.querySelector("#wizard-product").textContent = line.productName;
+    wizardEl.querySelector("#wizard-variant").textContent =
+      (line.variant === "menu" ? "En menu" : "Seul") + " · " + formatEuro(line.basePrice) + " de base";
+
+    const prog = wizardEl.querySelector("#wizard-progress");
+    prog.innerHTML = wizardSteps
+      .map((s, i) => {
+        const state = i < wizardStep ? "done" : i === wizardStep ? "current" : "todo";
+        return `<li class="${state}" ${i < wizardStep ? `data-wizard-action="goto" data-step="${i}" role="button" tabindex="0"` : ""}>
+                  <span class="wizard-step-dot">${i < wizardStep ? "✓" : i + 1}</span>
+                  <span class="wizard-step-label">${s.label}</span>
+                </li>`;
+      })
+      .join("");
+
+    const v = stepValidation(step);
+    wizardEl.querySelector("#wizard-title").textContent = step.title;
+    const sub = wizardEl.querySelector("#wizard-subtitle");
+    let subtitle = step.subtitle || "";
+    if (step.id === "tacos-meats") subtitle = `Jusqu'à ${getTacosMaxMeatsForLine(line)} viande${getTacosMaxMeatsForLine(line) > 1 ? "s" : ""} pour cette taille.`;
+    if (step.id === "kaps-meats") subtitle = `Jusqu'à ${getKapsaloonMaxMeatsForLine(line)} viande${getKapsaloonMaxMeatsForLine(line) > 1 ? "s" : ""}.`;
+    if (step.id === "tacos-sauces" || step.id === "kaps-sauces") subtitle = `Jusqu'à ${getMaxSauces()} sauces, ou aucune.`;
+    sub.textContent = subtitle;
+    sub.style.display = subtitle ? "" : "none";
+
+    const body = wizardEl.querySelector("#wizard-body");
+    const options = wizardEl.querySelector("#wizard-options");
+    options.innerHTML = renderWizardOptions(step);
+    if (animate) {
+      body.classList.remove("wizard-anim");
+      void body.offsetWidth;
+      body.classList.add("wizard-anim");
+      body.scrollTop = 0;
+    }
+
+    const hint = wizardEl.querySelector("#wizard-hint");
+    hint.textContent = v.hint;
+    hint.classList.toggle("ok", v.ok);
+
+    const qty = line.quantity > 0 ? line.quantity : 1;
+    wizardEl.querySelector("#wizard-price").textContent = formatEuro((line.lineTotal || 0) * qty);
+
+    const back = wizardEl.querySelector("#wizard-back");
+    const next = wizardEl.querySelector("#wizard-next");
+    back.style.visibility = wizardStep === 0 ? "hidden" : "";
+    const last = wizardStep === wizardSteps.length - 1;
+    next.textContent = last ? `Ajouter au ticket · ${formatEuro((line.lineTotal || 0) * qty)}` : "Suivant";
+    next.classList.toggle("disabled", !v.ok);
+  }
+
+  // ==========================================================================
   // PARTAGE DU TICKET
   // ==========================================================================
 
@@ -3683,8 +3832,10 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
           parts.push(`*SANS :* ${removedIngredients.join(", ")}`);
         }
 
-        if (line.productId === "menu-enfant" && line.kidsChoice) {
-          parts.push(`*PLAT ENFANT :* ${line.kidsChoice}`);
+        if (line.categoryId === "menu-enfant" && line.kidsChoice) {
+          const kidsOpts = asArray(getLineItem(line).kidsOptions);
+          const opt = kidsOpts.find((o) => o.id === line.kidsChoice);
+          parts.push(`*PLAT ENFANT :* ${opt ? opt.name : line.kidsChoice}`);
         }
 
         if (line.variant === "menu" && line.drinkChoice) {
