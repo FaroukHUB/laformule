@@ -1057,7 +1057,7 @@ body[data-snack="fabrik-burger"] header .max-w-6xl {
 
 /* ===== Assistant de personnalisation (façon borne) ===== */
 body.wizard-lock{ overflow:hidden; }
-.wizard{ position:fixed; inset:0; z-index:10000; display:flex; align-items:flex-end; justify-content:center; }
+.wizard{ position:fixed; inset:0; z-index:13000; display:flex; align-items:flex-end; justify-content:center; }
 .wizard.hidden{ display:none; }
 .wizard-backdrop{ position:absolute; inset:0; background:rgba(15,23,42,.55); backdrop-filter:blur(2px); }
 .wizard-sheet{
@@ -1145,3 +1145,32 @@ body.wizard-lock{ overflow:hidden; }
 .ticket-count.hidden{ display:none; }
 #ticket-toggle.bump{ animation:ticket-bump .5s ease; }
 @keyframes ticket-bump{ 30%{ transform:scale(1.15);} 60%{ transform:scale(.95);} 100%{ transform:scale(1);} }
+
+
+/* ===== Actions du hero (installer, commande en cours, recommander) ===== */
+.hero-actions{ display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; }
+.hero-actions.hidden{ display:none; }
+.hero-chip{ display:inline-flex; align-items:center; gap:.4rem; padding:.5rem .85rem; border-radius:999px; border:1px solid #e2e8f0; background:#fff; font-size:.8rem; font-weight:700; color:#334155; }
+.hero-chip.install{ border-color:var(--brand); color:var(--brand); }
+.hero-chip.tracking{ background:#0f172a; color:#fff; border-color:#0f172a; }
+.hero-chip strong{ font-weight:800; }
+
+/* ===== Suivi de commande ===== */
+.track{ margin-top:.5rem; padding:.75rem; border-radius:1rem; background:#fff; border:1px solid #e2e8f0; }
+.track-title{ font-size:.78rem; color:#475569; margin-bottom:.6rem; }
+.track-bar{ display:flex; list-style:none; margin:0 0 .5rem; padding:0; }
+.track-step{ flex:1; display:flex; flex-direction:column; align-items:center; gap:.3rem; position:relative; font-size:.66rem; font-weight:700; color:#94a3b8; text-align:center; }
+.track-step::before{ content:""; position:absolute; top:.7rem; left:-50%; width:100%; height:3px; background:#e2e8f0; z-index:0; }
+.track-step:first-child::before{ display:none; }
+.track-dot{ width:1.45rem; height:1.45rem; border-radius:999px; background:#e2e8f0; color:#fff; display:flex; align-items:center; justify-content:center; font-size:.7rem; z-index:1; border:3px solid #fff; box-shadow:0 0 0 1px #e2e8f0; }
+.track-step.done{ color:#15803d; }
+.track-step.done .track-dot{ background:#15803d; box-shadow:0 0 0 1px #15803d; }
+.track-step.done::before{ background:#15803d; }
+.track-step.current{ color:#0f172a; }
+.track-step.current .track-dot{ background:var(--brand); box-shadow:0 0 0 1px var(--brand); animation:track-pulse 1.6s infinite; }
+.track-step.current::before{ background:#15803d; }
+@keyframes track-pulse{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.15);} }
+.track-status{ font-size:.8rem; color:#334155; }
+.track-status.ok{ color:#15803d; font-weight:700; }
+.track-status.danger{ color:#b91c1c; font-weight:700; }
+.track-notify{ margin-top:.5rem; width:100%; padding:.55rem .8rem; border-radius:999px; border:1px solid #fcd34d; background:#fffbeb; color:#92400e; font-weight:700; font-size:.78rem; }

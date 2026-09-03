@@ -15,7 +15,10 @@ de configuration propre au restaurant.
 | `script.js` | Recherche dans la carte, navigation onglets / sliders, modale de personnalisation et **ticket de commande actif** (voir ci-dessous). |
 | `styles.css` | Thème par défaut du template (variables CSS surchargées par le runtime), boutons, cartes, badges, responsive. |
 | `images/` | Visuels des produits, hero et logo (webp / png). |
-| `test-db.php` | Test isolé de connexion PDO à une base MySQL locale. Aucun backend n'est présent dans le dépôt. |
+| `api/orders.php`, `api/config.php` | API de suivi de commande (voir plus bas) et son code cuisine. |
+| `cuisine/` | Tableau de bord cuisine : commandes en direct, changement de statut. |
+| `manifest.webmanifest`, `sw.js` | Application installable et cache hors ligne. |
+| `test-db.php` | Test isolé de connexion PDO à une base MySQL locale (non utilisé). |
 
 Ordre de chargement (en bas de `index.html`) : config → `script.js` → `snack-runtime.js`.
 
@@ -51,6 +54,41 @@ Ordre de chargement (en bas de `index.html`) : config → `script.js` → `snack
 7. **Après envoi** : le ticket affiche un bloc de confirmation avec un lien « Laisser un avis
    Google » (`google.reviewUrl`, sinon la fiche Google Maps) et un bouton « Nouvelle commande ».
 
+## Assistant de personnalisation (façon borne)
+
+Un clic sur un produit ouvre un parcours par étapes plein écran (feuille en bas sur mobile,
+fenêtre centrée sur ordinateur) : formule (seul / menu), taille, viandes, sauces, crudités,
+extras, ingrédients à retirer, boisson incluse, plat enfant, puis un récapitulatif avec la
+quantité et le prix en direct. Les étapes sont construites depuis la config du produit
+(`tacosConfig`, `kapsaloonConfig`, `priceMenu`, `baseIngredients`, `kidsOptions`…). Les
+étapes obligatoires (viandes, boisson du menu, plat enfant) bloquent « Suivant » avec un
+message. Le code vit dans `snack-runtime.js` (section « ASSISTANT DE PERSONNALISATION »).
+
+## Suivi de commande en direct
+
+- **API** : `api/orders.php` (PHP, sans base de données, stockage JSON verrouillé dans
+  `api/data/orders.json`). Endpoints : `create`, `status`, `list`, `update`, `ping`.
+- **Client** : à l'envoi WhatsApp, le site génère un numéro (`LF-1234`) inclus dans le message
+  et enregistre la commande dans l'API. Le ticket affiche alors une barre « Reçue → En
+  préparation → Prête / En route → Terminée » rafraîchie toutes les 10 s, l'heure estimée si le
+  resto l'a indiquée, et un bouton « Me prévenir quand c'est prêt » (notification navigateur).
+  Une puce « Commande LF-1234 · En préparation » apparaît dans le hero.
+- **Cuisine** : `/cuisine/` (page protégée par le code `KITCHEN_PIN` de `api/config.php`,
+  `1234` par défaut, **à changer**). Liste des commandes du jour, bip et vibration à chaque
+  nouvelle commande, boutons « Commencer (prête dans 10/20/30/45 min) », « Prête » ou « Partie
+  en livraison », « Remise / Livrée », « Annuler », appel et WhatsApp du client en un tap.
+- Si l'API est injoignable, le ticket fonctionne comme avant (envoi WhatsApp seul).
+
+## Application installable (PWA)
+
+`manifest.webmanifest`, icônes `images/icon-*.png` et `sw.js` (précache de la coquille,
+réseau d'abord pour HTML / JS / CSS / config, cache d'abord pour les images, jamais de cache
+pour `/api/`). Un bouton « Installer l'appli » apparaît dans le hero quand le navigateur le
+permet (Android / Chrome) ; sur iPhone il affiche la marche à suivre. Incrémenter `VERSION`
+dans `sw.js` à chaque mise en ligne. Les notifications « commande prête » sont envoyées quand
+la page ou l'appli est ouverte ; le push en arrière-plan demande un serveur de push (Web Push
++ clés VAPID), non inclus.
+
 ## Statut ouvert / fermé
 
 Le hero affiche une pastille calculée en direct à partir de `openingHours` et de l'heure de
@@ -78,3 +116,5 @@ Uber Eats / Deliveroo / Facebook). Le runtime ne duplique pas ce JSON‑LD quand
   confirmer avec le restaurant, ainsi que les zones livrées.
 - `google.reviewUrl` est vide : renseigner le lien « écrire un avis » de la fiche Google
   (format `https://search.google.com/local/writereview?placeid=…`).
+- Changer `KITCHEN_PIN` dans `api/config.php` avant de donner l'adresse `/cuisine/` au
+  restaurant. Le dossier `api/data/` doit être accessible en écriture par PHP.

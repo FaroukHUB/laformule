@@ -58,8 +58,9 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     applyFloatingCall();
     applySeo();
     applyOpenStatus();
+    initPwa();
     restoreTicketState();
-    applyReorderShortcut();
+    applyHeroActions();
   }
 
   // ==========================================================================
@@ -1670,6 +1671,10 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     if (action === "set-variant") {
       setLineVariant(actionEl.dataset.variant);
     }
+
+    if (action === "enable-notifications") {
+      enableNotifications();
+    }
   }
 
   function findProductById(productId) {
@@ -2299,7 +2304,12 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       const reviewUrl = getReviewUrl();
       sent.innerHTML = `
         <p class="font-semibold text-sm text-green-800">✅ Commande envoyée sur WhatsApp</p>
-        <p class="text-slate-600">L'équipe vous rappelle pour confirmer. Si WhatsApp ne s'est pas ouvert, utilisez de nouveau le bouton en bas.</p>
+        <p class="text-slate-600">${
+          tracking
+            ? "Suivez l'avancement ci-dessous, l'équipe vous rappelle en cas de question."
+            : "L'équipe vous rappelle pour confirmer. Si WhatsApp ne s'est pas ouvert, utilisez de nouveau le bouton en bas."
+        }</p>
+        ${trackingHtml()}
         ${
           reviewUrl
             ? `<a href="${reviewUrl}" target="_blank" rel="noopener"
@@ -2833,6 +2843,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
         activeLine: null,
         meta: orderMeta,
         sentAt: ticketSent ? ticketSent.at : null,
+        tracking: tracking || null,
         name: inputs.name,
         phone: inputs.phone,
         message: inputs.message,
@@ -2877,6 +2888,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
         state.meta || {}
       );
       ticketSent = state.sentAt ? { at: state.sentAt } : null;
+      tracking = state.tracking && state.tracking.id && state.tracking.token ? state.tracking : null;
     } else if (state) {
       try {
         localStorage.removeItem(TICKET_STATE_KEY);
@@ -2908,6 +2920,10 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       set("#ticket-phone", lastOrder.phone);
     }
     renderTicketPanel();
+    if (tracking) startTrackingPoll();
+    if (/[?&]open=ticket\b/.test(location.search)) {
+      ticketPanel.classList.remove("hidden");
+    }
   }
 
   function markTicketSent() {
@@ -2925,15 +2941,24 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       /* ignore */
     }
     ticketSent = { at: Date.now() };
+    tracking = null;
+    stopTrackingPoll();
     renderTicketPanel();
-    applyReorderShortcut();
+    applyHeroActions();
+    if (pendingOrderId) {
+      createTrackedOrder(pendingOrderId, inputs);
+      pendingOrderId = null;
+    }
   }
 
   function startNewOrder() {
     ticketLines = [];
     activeLine = null;
     ticketSent = null;
+    tracking = null;
+    stopTrackingPoll();
     renderTicketPanel();
+    applyHeroActions();
   }
 
   function reorderLastOrder() {
@@ -2974,30 +2999,8 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     return `${count} produit${count > 1 ? "s" : ""} · ${formatEuro(total)}`;
   }
 
-  // Raccourci « Recommander » dans le hero quand une commande précédente existe
   function applyReorderShortcut() {
-    const hero = $("#hero");
-    if (!hero) return;
-    let btn = $("#reorder-shortcut");
-    if (!lastOrder) {
-      if (btn) btn.remove();
-      return;
-    }
-    if (!btn) {
-      const form = hero.querySelector("#smart-search");
-      btn = document.createElement("button");
-      btn.id = "reorder-shortcut";
-      btn.type = "button";
-      btn.className =
-        "mt-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-[color:var(--brand)]";
-      btn.addEventListener("click", reorderLastOrder);
-      if (form && form.parentNode) {
-        form.parentNode.insertBefore(btn, form.nextSibling);
-      } else {
-        hero.appendChild(btn);
-      }
-    }
-    btn.innerHTML = `🔁 Recommander ma dernière commande <span class="text-slate-400 font-normal">(${describeLastOrder()})</span>`;
+    applyHeroActions();
   }
 
   function getReviewUrl() {
@@ -3699,6 +3702,354 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
   }
 
   // ==========================================================================
+  // SUIVI DE COMMANDE EN DIRECT (api/orders.php) + NOTIFICATIONS
+  // ==========================================================================
+  const API_URL = (cfg.ordering && cfg.ordering.apiUrl) || "/api/orders.php";
+  const TRACKING_POLL_MS = 10 * 1000;
+  const STATUS_LABELS = {
+    recue: "Reçue",
+    preparation: "En préparation",
+    prete: "Prête",
+    en_route: "En route",
+    terminee: "Terminée",
+    annulee: "Annulée",
+  };
+
+  var tracking = null; // { id, token, status, eta, mode, createdAt, updatedAt }
+  var trackingTimer = null;
+  var pendingOrderId = null;
+
+  function makeOrderId() {
+    return "LF-" + String(Math.floor(1000 + Math.random() * 9000));
+  }
+
+  function trackingSteps(mode) {
+    return mode === "livraison"
+      ? ["recue", "preparation", "en_route", "terminee"]
+      : ["recue", "preparation", "prete", "terminee"];
+  }
+
+  function isTerminalStatus(s) {
+    return s === "terminee" || s === "annulee";
+  }
+
+  function lineToPayload(line) {
+    const qty = line.quantity > 0 ? line.quantity : 1;
+    return {
+      name: line.productName,
+      qty,
+      variant: line.variant === "menu" ? "menu" : "solo",
+      details: lineDetailsForRecap(line)
+        .map(([k, v]) => `${k} : ${v}`)
+        .join(" · "),
+      total: line.lineTotal || 0,
+    };
+  }
+
+  async function createTrackedOrder(id, inputs) {
+    const totals = computeTotals();
+    const payload = {
+      id,
+      name: inputs.name,
+      phone: inputs.phone,
+      mode: getCurrentMode().id,
+      address: orderMeta.address || "",
+      time: orderMeta.time || "Dès que possible",
+      message: inputs.message || "",
+      lines: asArray(ticketLines).map(lineToPayload),
+      subtotal: totals.subtotal,
+      fee: totals.fee,
+      total: totals.total,
+    };
+    try {
+      const r = await fetch(`${API_URL}?action=create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) return null;
+      const data = await r.json();
+      tracking = {
+        id: data.id,
+        token: data.token,
+        status: data.status || "recue",
+        eta: null,
+        mode: payload.mode,
+        createdAt: data.createdAt || Math.floor(Date.now() / 1000),
+        updatedAt: data.createdAt || Math.floor(Date.now() / 1000),
+      };
+      saveTicketState();
+      renderTicketPanel();
+      applyHeroActions();
+      startTrackingPoll();
+      return tracking;
+    } catch (e) {
+      return null; // API absente (ex. hébergement sans PHP) : le ticket reste utilisable
+    }
+  }
+
+  function stopTrackingPoll() {
+    if (trackingTimer) clearInterval(trackingTimer);
+    trackingTimer = null;
+  }
+
+  function startTrackingPoll() {
+    stopTrackingPoll();
+    if (!tracking || isTerminalStatus(tracking.status)) return;
+    pollTracking();
+    trackingTimer = setInterval(() => {
+      if (document.visibilityState === "visible") pollTracking();
+    }, TRACKING_POLL_MS);
+  }
+
+  async function pollTracking() {
+    if (!tracking) return;
+    try {
+      const r = await fetch(
+        `${API_URL}?action=status&id=${encodeURIComponent(tracking.id)}&token=${encodeURIComponent(tracking.token)}`,
+        { cache: "no-store" }
+      );
+      if (r.status === 404 || r.status === 403) {
+        stopTrackingPoll();
+        return;
+      }
+      if (!r.ok) return;
+      const data = await r.json();
+      const prev = tracking.status;
+      tracking.status = data.status || prev;
+      tracking.eta = data.eta || null;
+      tracking.updatedAt = data.updatedAt || tracking.updatedAt;
+      if (prev !== tracking.status) {
+        saveTicketState();
+        renderTicketPanel();
+        applyHeroActions();
+        if (tracking.status === "prete" || tracking.status === "en_route") notifyReady();
+        if (tracking.status === "annulee") {
+          showToast({ icon: "⚠️", type: "warning", title: "Commande annulée", message: "Le restaurant a annulé votre commande. Appelez-nous pour en savoir plus.", duration: 8000 });
+        }
+      } else if (tracking.eta !== (data.eta || null)) {
+        renderTicketPanel();
+      }
+      if (isTerminalStatus(tracking.status)) stopTrackingPoll();
+    } catch (e) {
+      /* réseau indisponible : on réessaiera */
+    }
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && tracking && !isTerminalStatus(tracking.status)) {
+      startTrackingPoll();
+    }
+  });
+
+  function canNotify() {
+    return "Notification" in window;
+  }
+
+  async function enableNotifications() {
+    if (!canNotify()) return;
+    try {
+      const p = await Notification.requestPermission();
+      if (p === "granted") {
+        showToast({ icon: "🔔", type: "success", title: "C'est noté", message: "On te prévient dès que c'est prêt.", duration: 3000 });
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    renderTicketPanel();
+  }
+
+  async function notifyReady() {
+    if (!tracking) return;
+    const body =
+      tracking.mode === "livraison"
+        ? "Votre commande est en route ! 🛵"
+        : "Votre commande est prête ! 🎉 Bon appétit.";
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    showToast({ icon: tracking.mode === "livraison" ? "🛵" : "🎉", type: "success", title: `Commande ${tracking.id}`, message: body, duration: 8000 });
+    if (!canNotify() || Notification.permission !== "granted") return;
+    const options = {
+      body,
+      icon: "/images/icon-192.png",
+      badge: "/images/icon-192.png",
+      tag: "order-" + tracking.id,
+      data: { url: "/?open=ticket" },
+      vibrate: [200, 100, 200],
+    };
+    try {
+      const reg = navigator.serviceWorker ? await navigator.serviceWorker.getRegistration() : null;
+      if (reg && reg.showNotification) {
+        await reg.showNotification(snackName, options);
+      } else {
+        new Notification(snackName, options);
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  function trackingHtml() {
+    if (!tracking) return "";
+    const steps = trackingSteps(tracking.mode);
+    const status = tracking.status;
+    const cancelled = status === "annulee";
+    let idx = steps.indexOf(status);
+    if (idx < 0) idx = cancelled ? -1 : 0;
+
+    const bar = steps
+      .map((s, i) => {
+        const state = cancelled ? "off" : i < idx ? "done" : i === idx ? "current" : "todo";
+        return `<li class="track-step ${state}">
+                  <span class="track-dot">${state === "done" ? "✓" : ""}</span>
+                  <span class="track-label">${STATUS_LABELS[s]}</span>
+                </li>`;
+      })
+      .join("");
+
+    let line = "";
+    if (cancelled) {
+      line = `<p class="track-status danger">❌ Commande annulée par le restaurant. Appelez-nous au <a href="${phoneHref}">${phoneDisplay}</a>.</p>`;
+    } else if (status === "recue") {
+      line = `<p class="track-status">⏳ En attente de prise en charge par l'équipe.</p>`;
+    } else if (status === "preparation") {
+      const eta = tracking.eta ? ` · prête vers <strong>${new Date(tracking.eta * 1000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</strong>` : "";
+      line = `<p class="track-status">👨‍🍳 En préparation${eta}</p>`;
+    } else if (status === "prete") {
+      line = `<p class="track-status ok">🎉 C'est prêt ! À récupérer au comptoir.</p>`;
+    } else if (status === "en_route") {
+      line = `<p class="track-status ok">🛵 Le livreur est en route.</p>`;
+    } else if (status === "terminee") {
+      line = `<p class="track-status ok">🏁 Commande terminée. Bon appétit !</p>`;
+    }
+
+    const notifBtn =
+      canNotify() && Notification.permission === "default" && !isTerminalStatus(status)
+        ? `<button type="button" class="track-notify" data-ticket-action="enable-notifications">🔔 Me prévenir quand c'est prêt</button>`
+        : "";
+
+    return `
+      <div class="track">
+        <p class="track-title">Commande <strong>n° ${tracking.id}</strong> · suivi en direct</p>
+        <ol class="track-bar">${bar}</ol>
+        ${line}
+        ${notifBtn}
+      </div>`;
+  }
+
+  // ==========================================================================
+  // ACTIONS DU HERO : installer l'appli, commande en cours, recommander
+  // ==========================================================================
+  var deferredInstall = null;
+
+  function getHeroActions() {
+    const hero = $("#hero");
+    if (!hero) return null;
+    let box = $("#hero-actions");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "hero-actions";
+      box.className = "hero-actions";
+      const form = hero.querySelector("#smart-search");
+      if (form && form.parentNode) form.parentNode.insertBefore(box, form.nextSibling);
+      else hero.appendChild(box);
+    }
+    return box;
+  }
+
+  function isStandalone() {
+    return (
+      (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+      window.navigator.standalone === true
+    );
+  }
+
+  function isIos() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  }
+
+  function applyHeroActions() {
+    const box = getHeroActions();
+    if (!box) return;
+    box.innerHTML = "";
+
+    if (tracking && !isTerminalStatus(tracking.status)) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "hero-chip tracking";
+      b.innerHTML = `🧾 Commande ${tracking.id} · <strong>${STATUS_LABELS[tracking.status] || tracking.status}</strong> · voir le suivi`;
+      b.addEventListener("click", () => {
+        ensureTicketShell();
+        ticketPanel.classList.remove("hidden");
+        renderTicketPanel();
+      });
+      box.appendChild(b);
+    }
+
+    if (!isStandalone() && (deferredInstall || isIos())) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.id = "pwa-install";
+      b.className = "hero-chip install";
+      b.innerHTML = `📲 Installer l'appli ${snackName}`;
+      b.addEventListener("click", async () => {
+        if (deferredInstall) {
+          deferredInstall.prompt();
+          try {
+            await deferredInstall.userChoice;
+          } catch (e) {
+            /* ignore */
+          }
+          deferredInstall = null;
+          applyHeroActions();
+        } else {
+          showToast({
+            icon: "📲",
+            type: "info",
+            title: "Sur iPhone",
+            message: "Appuie sur Partager (carré avec la flèche) puis « Sur l'écran d'accueil ».",
+            duration: 9000,
+          });
+        }
+      });
+      box.appendChild(b);
+    }
+
+    if (lastOrder) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.id = "reorder-shortcut";
+      b.className = "hero-chip";
+      b.innerHTML = `🔁 Recommander ma dernière commande <span class="text-slate-400 font-normal">(${describeLastOrder()})</span>`;
+      b.addEventListener("click", reorderLastOrder);
+      box.appendChild(b);
+    }
+
+    box.classList.toggle("hidden", !box.children.length);
+  }
+
+  function initPwa() {
+    const secure =
+      location.protocol === "https:" ||
+      location.hostname === "localhost" ||
+      location.hostname === "127.0.0.1";
+    if ("serviceWorker" in navigator && secure) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch(() => null);
+      });
+    }
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredInstall = e;
+      applyHeroActions();
+    });
+    window.addEventListener("appinstalled", () => {
+      deferredInstall = null;
+      applyHeroActions();
+      showToast({ icon: "🎉", type: "success", title: "Appli installée", message: `${snackName} est sur ton écran d'accueil.`, duration: 4000 });
+    });
+  }
+
+  // ==========================================================================
   // PARTAGE DU TICKET
   // ==========================================================================
 
@@ -3852,8 +4203,10 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
     const extra = (msgInput.value || "").trim();
 
+    pendingOrderId = makeOrderId();
     const headerLines = [
       `Commande ${snackName} – ${name} (${phone})`,
+      `N° ${pendingOrderId}`,
       `${mode.icon ? mode.icon + " " : ""}${mode.label}${
         totals.isDelivery && orderMeta.address ? ` – ${orderMeta.address}` : ""
       }`,

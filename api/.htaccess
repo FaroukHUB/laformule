@@ -1,0 +1,7 @@
+# Seul orders.php est accessible ; la config et les données restent privées.
+<Files "config.php">
+  Require all denied
+</Files>
+<FilesMatch "\.(json|log)$">
+  Require all denied
+</FilesMatch>

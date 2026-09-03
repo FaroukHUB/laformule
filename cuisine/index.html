@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Cuisine · Commandes en direct</title>
+  <meta name="theme-color" content="#111827">
+  <link rel="icon" href="/images/icon-192.png">
+  <link rel="apple-touch-icon" href="/images/icon-192.png">
+  <style>
+    :root{ --brand:#e11b22; --ink:#0f172a; --muted:#64748b; --bg:#f1f5f9; --card:#fff; --ok:#15803d; --warn:#b45309; --info:#1d4ed8; }
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+    button{ font:inherit; cursor:pointer; }
+    header{ position:sticky; top:0; z-index:10; background:#111827; color:#fff; padding:.75rem 1rem; display:flex; align-items:center; gap:.75rem; }
+    header h1{ font-size:1rem; margin:0; font-weight:800; display:flex; align-items:center; gap:.5rem; }
+    header .dot{ width:.6rem; height:.6rem; border-radius:999px; background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.25); }
+    header .dot.off{ background:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.25); }
+    header .spacer{ flex:1; }
+    .hbtn{ border:1px solid rgba(255,255,255,.25); background:transparent; color:#fff; border-radius:999px; padding:.35rem .7rem; font-size:.8rem; font-weight:700; }
+    .hbtn.on{ background:#fff; color:#111827; }
+    main{ max-width:56rem; margin:0 auto; padding:1rem; }
+    .tabs{ display:flex; gap:.5rem; margin-bottom:1rem; }
+    .tab{ flex:1; padding:.6rem; border-radius:999px; border:2px solid #e2e8f0; background:#fff; font-weight:800; font-size:.9rem; color:var(--muted); }
+    .tab.on{ border-color:var(--ink); color:var(--ink); }
+    .tab .n{ display:inline-block; min-width:1.4rem; padding:0 .35rem; border-radius:999px; background:var(--brand); color:#fff; font-size:.75rem; margin-left:.35rem; }
+    .empty{ text-align:center; color:var(--muted); padding:3rem 1rem; }
+    .card{ background:var(--card); border-radius:1.25rem; padding:1rem; margin-bottom:.9rem; box-shadow:0 4px 14px rgba(0,0,0,.06); border-left:6px solid #94a3b8; }
+    .card.recue{ border-left-color:var(--brand); animation:pulse 1.6s infinite; }
+    .card.preparation{ border-left-color:var(--warn); }
+    .card.prete, .card.en_route{ border-left-color:var(--ok); }
+    .card.terminee, .card.annulee{ opacity:.65; }
+    @keyframes pulse{ 0%,100%{ box-shadow:0 4px 14px rgba(0,0,0,.06);} 50%{ box-shadow:0 4px 18px rgba(225,27,34,.35);} }
+    .top{ display:flex; align-items:flex-start; gap:.75rem; }
+    .id{ font-size:1.35rem; font-weight:900; letter-spacing:.02em; }
+    .meta{ font-size:.8rem; color:var(--muted); margin-top:.15rem; }
+    .badge{ display:inline-block; padding:.2rem .55rem; border-radius:999px; font-size:.72rem; font-weight:800; background:#f1f5f9; color:var(--ink); margin-right:.3rem; }
+    .badge.livraison{ background:#dbeafe; color:var(--info); }
+    .badge.emporter{ background:#fef3c7; color:var(--warn); }
+    .badge.sur-place{ background:#dcfce7; color:var(--ok); }
+    .status{ margin-left:auto; text-align:right; font-size:.78rem; font-weight:800; }
+    .status span{ display:block; font-weight:500; color:var(--muted); }
+    .client{ margin:.7rem 0; display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; font-size:.9rem; }
+    .client a{ color:var(--ink); text-decoration:none; font-weight:700; padding:.35rem .7rem; border:1px solid #e2e8f0; border-radius:999px; background:#fff; }
+    .addr{ font-size:.85rem; color:var(--ink); background:#eff6ff; padding:.45rem .7rem; border-radius:.75rem; margin:.4rem 0; }
+    ul.lines{ list-style:none; padding:0; margin:.6rem 0; display:flex; flex-direction:column; gap:.35rem; }
+    ul.lines li{ display:flex; gap:.6rem; padding:.5rem .7rem; background:#f8fafc; border-radius:.75rem; font-size:.9rem; }
+    ul.lines .q{ font-weight:900; color:var(--brand); min-width:2rem; }
+    ul.lines .d{ display:block; font-size:.78rem; color:var(--muted); margin-top:.15rem; }
+    ul.lines .p{ margin-left:auto; font-weight:700; white-space:nowrap; }
+    .total{ display:flex; justify-content:space-between; font-weight:900; font-size:1rem; padding:.3rem .2rem; }
+    .msg{ font-size:.85rem; background:#fffbeb; border:1px dashed #fcd34d; padding:.5rem .7rem; border-radius:.75rem; margin:.4rem 0; }
+    .actions{ display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; }
+    .btn{ flex:1; min-width:9rem; padding:.85rem 1rem; border-radius:.9rem; border:0; font-weight:900; font-size:.95rem; color:#fff; background:var(--ink); }
+    .btn.primary{ background:var(--brand); }
+    .btn.ok{ background:var(--ok); }
+    .btn.ghost{ background:#fff; color:var(--muted); border:2px solid #e2e8f0; flex:0 0 auto; min-width:0; }
+    .eta{ display:flex; gap:.4rem; align-items:center; font-size:.8rem; color:var(--muted); width:100%; }
+    .eta button{ border:1px solid #e2e8f0; background:#fff; border-radius:999px; padding:.3rem .6rem; font-weight:700; font-size:.78rem; }
+    .eta button.on{ background:var(--ink); color:#fff; border-color:var(--ink); }
+    #login{ max-width:22rem; margin:4rem auto; background:#fff; padding:1.5rem; border-radius:1.5rem; box-shadow:0 10px 30px rgba(0,0,0,.08); text-align:center; }
+    #login input{ width:100%; font-size:1.6rem; text-align:center; letter-spacing:.4em; padding:.7rem; border:2px solid #e2e8f0; border-radius:1rem; margin:1rem 0; }
+    #login .btn{ width:100%; }
+    #login .err{ color:var(--brand); font-size:.85rem; min-height:1.2rem; }
+    .hidden{ display:none !important; }
+    .toast{ position:fixed; left:50%; bottom:1.2rem; transform:translateX(-50%); background:#111827; color:#fff; padding:.7rem 1.1rem; border-radius:999px; font-weight:700; font-size:.9rem; z-index:20; box-shadow:0 10px 30px rgba(0,0,0,.3); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><span id="netdot" class="dot"></span><span id="brand">Cuisine</span></h1>
+    <span class="spacer"></span>
+    <button id="soundBtn" class="hbtn" type="button">🔔 Son</button>
+    <button id="refreshBtn" class="hbtn" type="button">↻</button>
+    <button id="logoutBtn" class="hbtn hidden" type="button">Quitter</button>
+  </header>
+
+  <main>
+    <section id="login">
+      <p style="font-size:2rem;margin:0">👨‍🍳</p>
+      <h2 style="margin:.3rem 0 0">Espace cuisine</h2>
+      <p style="color:var(--muted);font-size:.9rem;margin:.3rem 0 0">Entre le code pour voir les commandes.</p>
+      <input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" />
+      <p id="loginErr" class="err"></p>
+      <button id="loginBtn" class="btn primary" type="button">Entrer</button>
+    </section>
+
+    <section id="board" class="hidden">
+      <div class="tabs">
+        <button class="tab on" data-tab="active" type="button">À traiter <span class="n" id="nActive">0</span></button>
+        <button class="tab" data-tab="done" type="button">Terminées <span class="n" id="nDone" style="background:#94a3b8">0</span></button>
+      </div>
+      <div id="list"></div>
+    </section>
+  </main>
+
+  <script src="/config/laformule59.config.js"></script>
+  <script src="/cuisine/cuisine.js"></script>
+</body>
+</html>

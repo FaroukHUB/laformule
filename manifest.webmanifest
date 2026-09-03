@@ -1,0 +1,22 @@
+{
+  "name": "La Formule – Tacos, burgers et snacking",
+  "short_name": "La Formule",
+  "description": "Compose ton tacos, commande sur WhatsApp et suis ta commande en direct.",
+  "lang": "fr",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#e11b22",
+  "categories": ["food"],
+  "icons": [
+    { "src": "/images/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/images/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/images/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Voir la carte", "url": "/?source=pwa#menu", "icons": [{ "src": "/images/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Mon ticket", "url": "/?source=pwa&open=ticket", "icons": [{ "src": "/images/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
