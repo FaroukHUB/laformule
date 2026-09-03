@@ -929,6 +929,11 @@ window.SNACK_CONFIG = {
       },
 
       // Fromages
+      "sup-cheddar": {
+        id: "sup-cheddar",
+        name: "Cheddar",
+        price: 1.0
+      },
       "sup-chevre": {
         id: "sup-chevre",
         name: "Fromage de chèvre",

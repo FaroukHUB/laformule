@@ -23,30 +23,32 @@ Ordre de chargement (en bas de `index.html`) : config → `script.js` → `snack
 
 1. Le runtime génère une carte par produit avec un bouton de prix « seul » et, si `priceMenu`
    est défini, un bouton « en menu ».
-2. Un clic appelle `window.openTicketBuilder(productId, variant)`. Cette fonction est celle
-   de `script.js` : elle ouvre la modale `#customize-modal` de `index.html`.
-3. La modale propose : le choix d'une boisson (variante menu uniquement), les suppléments
-   autorisés pour la catégorie (`supplements.defaultForCategories`), et le retrait des
-   `baseIngredients` du produit. Le total est recalculé en direct.
-4. « Ajouter au ticket » pousse une ligne dans `ticketLines` et affiche le panneau
-   `#ticket-panel` (bouton flottant 🎟️ en bas à gauche).
-5. Le panneau demande prénom et téléphone (obligatoires) et un message libre, puis
-   « Envoyer au resto » construit un texte récapitulatif et l'envoie via le partage natif
-   du téléphone, avec repli sur `https://wa.me/?text=…`.
+2. Un clic appelle `openTicketBuilder(productId, variant)` dans `snack-runtime.js`, qui ouvre
+   le panneau ticket (bouton flottant 🎟️ en bas à gauche) avec une ligne « en cours de
+   personnalisation » :
+   - **Tacos** (`tacosConfig`) : taille (M à XXL, le nombre de viandes dépend de la taille),
+     viandes, sauces (max. 2), crudités incluses, suppléments.
+   - **Kapsalon** (`kapsaloonConfig`) : viandes selon la taille, sauces (max. 2), suppléments.
+   - **Burgers, sandwichs, paninis, signatures, galettes** : sauce au choix (max. 2, liste
+     `sauces` de la config), suppléments, retrait d'ingrédients de base.
+   - **Menu enfant** : plat du menu (`kidsOptions`).
+   - **Variante menu** : choix de la boisson incluse dans la catégorie « Boissons ».
+3. « Ajouter au ticket » valide la ligne (au moins une viande pour tacos et kapsalon), fusionne
+   les lignes identiques et permet d'ajuster les quantités.
+4. Le panneau demande prénom et téléphone (obligatoires) et un message libre.
+   « Envoyer la commande sur WhatsApp » ouvre une conversation avec le numéro
+   `contact.whatsappOrdersNumber` de la config, message pré‑rempli avec chaque ligne, ses
+   options et le total. « Partager le ticket » utilise le partage natif du téléphone.
 
 Le ticket est en mémoire uniquement : il est perdu au rechargement de la page.
 
 ## Points d'attention connus
 
-- `snack-runtime.js` contient un second système de ticket complet (lignes ~1400 à 2970) avec
-  un **configurateur tacos / kapsalon** (taille, viandes, sauces, crudités, quantités) et un
-  envoi WhatsApp vers le numéro du restaurant (`contact.whatsappOrdersNumber`). Sa fonction
-  d'entrée `openTicketBuilder` est **commentée**, donc tout ce bloc est inactif. En pratique,
-  un tacos commandé aujourd'hui part sans taille, viande ni sauce, au prix de la base M.
-- L'envoi actif (`script.js`) ouvre WhatsApp **sans numéro de destinataire** : le client doit
-  choisir le contact lui‑même. La constante `RESTO_PHONE` de `script.js` n'est pas utilisée
-  pour l'envoi et ne correspond pas au numéro de la config.
-- `script.js` référence un endpoint `/cart/actions.php` qui n'existe pas dans le dépôt.
+- `script.js` référençait un ancien panier (`/cart/actions.php`) et une seconde modale de
+  personnalisation qui court‑circuitait le configurateur. Ces blocs ont été retirés ; le fichier
+  ne gère plus que la recherche, les onglets, les sliders et la carte.
 - `assets.gallery` référence trois images `la-formule-1/2/3.webp` absentes du dossier `images/`.
 - Le titre, la description et le JSON‑LD de `index.html` sont neutres et remplis par le runtime,
   ce qui limite le référencement sans JavaScript.
+- Le numéro WhatsApp de réception des commandes est celui de `contact.whatsappOrdersNumber`
+  dans la config : à vérifier avec le restaurant.

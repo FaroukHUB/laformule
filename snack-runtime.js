@@ -1463,14 +1463,14 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
           <span id="ticket-total">0,00 €</span>
         </div>
 
-        <button id="ticket-share" type="button"
+        <button id="ticket-share-restaurant" type="button"
                 class="w-full btn-brand rounded-full py-2 text-sm font-semibold flex items-center justify-center gap-2">
-          <span>Envoyer / partager le ticket</span>
+          <span>Envoyer la commande sur WhatsApp</span>
         </button>
 
-        <button id="ticket-share-restaurant" type="button"
+        <button id="ticket-share" type="button"
                 class="w-full rounded-full py-2 text-sm font-semibold flex items-center justify-center gap-2 border border-slate-300 text-slate-700 bg-white">
-          <span>Envoyer directement au resto</span>
+          <span>Partager le ticket</span>
         </button>
       </div>
     `;
@@ -1905,7 +1905,6 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
   // ==========================================================================
   // OUVERTURE DU TICKET BUILDER
   // ==========================================================================
-/*
   function openTicketBuilder(productId, variant) {
     ensureTicketShell();
 
@@ -2043,7 +2042,6 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     ticketPanel.classList.remove("hidden");
     renderTicketPanel();
   }
-*/
   // ==========================================================================
   // GESTION DES LIGNES DU TICKET
   // ==========================================================================
@@ -2075,6 +2073,21 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
   function addActiveLineToTicket() {
     if (!activeLine) return;
+
+    if (
+      activeLine.categoryId === "tacos" &&
+      !asArray(activeLine.tacosMeats).length
+    ) {
+      alert("Choisissez au moins une viande pour votre tacos.");
+      return;
+    }
+    if (
+      activeLine.categoryId === "kapsaloon" &&
+      !asArray(activeLine.kapsaloonMeats).length
+    ) {
+      alert("Choisissez au moins une viande pour votre kapsalon.");
+      return;
+    }
     if (!Array.isArray(ticketLines)) ticketLines = [];
 
     const unitPrice = activeLine.lineTotal || activeLine.basePrice || 0;
@@ -2217,7 +2230,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
         li.className =
           "flex items-start justify-between gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-xs";
 
-        const variantLabel = line.variant === "menu" ? "menu" : "";
+        const variantLabel = line.variant === "menu" ? "menu" : "seul";
 
         const supplements = asArray(line.supplements);
         const removedIngredients = asArray(line.removedIngredients);
@@ -2404,7 +2417,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       const block = document.createElement("div");
       block.className = "border rounded-2xl p-3 bg-slate-50 space-y-3 text-xs";
 
-      const variantLabel = activeLine.variant === "menu" ? "menu" : "";
+      const variantLabel = activeLine.variant === "menu" ? "menu" : "seul";
 
       // 🆕 BLOC KAPSALOON HTML
       let kapsaloonHtml = "";
@@ -2504,6 +2517,8 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
         const selectedBaseId = activeLine.tacosBaseId;
         const selectedMeats = asArray(activeLine.tacosMeats);
         const selectedSauces = asArray(activeLine.tacosSauces);
+        const crudites = Array.isArray(tacosCfg.freeCrudites) ? tacosCfg.freeCrudites : [];
+        const selectedVeggies = asArray(activeLine.tacosVeggies);
 
         tacosHtml = `
           <div class="space-y-3">
@@ -2575,6 +2590,34 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
                   .join("")}
               </div>
             </div>
+
+            ${
+              crudites.length
+                ? `
+            <div class="space-y-2">
+              <p class="text-[11px] text-slate-500">Crudités (incluses) :</p>
+              <div class="flex flex-wrap gap-1">
+                ${crudites
+                  .map((v) => {
+                    const isOn = selectedVeggies.includes(v);
+                    return `
+                      <button type="button"
+                              data-ticket-action="toggle-tacos-veg"
+                              data-veggie="${v}"
+                              class="px-2 py-1 rounded-full border text-[11px] ${
+                                isOn
+                                  ? "bg-brand text-white border-brand"
+                                  : "bg-white text-slate-700 border-slate-200"
+                              }">
+                        ${v}
+                      </button>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            </div>`
+                : ""
+            }
           </div>
         `;
       }
@@ -2847,7 +2890,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
     const linesText = safeLines
       .map((line) => {
-        const variantLabel = line.variant === "menu" ? "menu" : "";
+        const variantLabel = line.variant === "menu" ? "menu" : "seul";
         const supplements = asArray(line.supplements);
         const removedIngredients = asArray(line.removedIngredients);
 
@@ -2862,6 +2905,26 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
             ? `- [${categoryLabel}] ${line.productName} (${variantLabel}) x${qty}`
             : `- [${categoryLabel}] ${line.productName} (${variantLabel})`,
         ];
+
+        if (line.categoryId === "tacos") {
+          const base = getTacosBaseForLine(line);
+          if (base && base.label) parts.push(`*TAILLE :* ${base.label}`);
+          const meats = asArray(line.tacosMeats);
+          if (meats.length) parts.push(`*VIANDES :* ${meats.join(", ")}`);
+          const sauces = asArray(line.tacosSauces);
+          if (sauces.length) parts.push(`*SAUCES :* ${sauces.join(", ")}`);
+          const veggies = asArray(line.tacosVeggies);
+          if (veggies.length) parts.push(`*CRUDITÉS :* ${veggies.join(", ")}`);
+        }
+
+        if (line.categoryId === "kapsaloon") {
+          const base = getKapsaloonBaseForLine(line);
+          if (base && base.label) parts.push(`*TAILLE :* ${base.label}`);
+          const meats = asArray(line.kapsaloonMeats);
+          if (meats.length) parts.push(`*VIANDES :* ${meats.join(", ")}`);
+          const sauces = asArray(line.kapsaloonSauces);
+          if (sauces.length) parts.push(`*SAUCES :* ${sauces.join(", ")}`);
+        }
 
         const sauceCategories = [
           "burgers",
@@ -2901,7 +2964,9 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
         }
 
         if (line.variant === "menu" && line.drinkChoice) {
-          parts.push(`*BOISSON :* ${line.drinkChoice} (incluse)`);
+          const drink = getMenuDrinks().find((d) => d.id === line.drinkChoice);
+          const drinkName = (drink && drink.name) || line.drinkChoice;
+          parts.push(`*BOISSON :* ${drinkName} (incluse)`);
         }
 
         parts.push(`= ${(line.lineTotal || 0).toFixed(2)} €`);
@@ -2912,7 +2977,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
     const extra = (msgInput.value || "").trim();
     const txt =
-      `Commande de ${name} (${phone})\n\n` +
+      `Commande ${snackName} – ${name} (${phone})\n\n` +
       `${linesText}\n\n` +
       `Total : ${total.toFixed(2)} €` +
       (extra ? `\n\nMessage : ${extra}` : "");
@@ -3455,7 +3520,6 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
   function initEnhancedFeatures() {
     // Initialiser toutes les fonctionnalités améliorées
-    initFirstAddDetection();
     initWhatsAppDetection();
 
     // Vérifier périodiquement si le panier est vide
