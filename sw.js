@@ -6,14 +6,14 @@
    - /api/ : jamais mis en cache.
    À chaque déploiement : changer VERSION ici ET le paramètre ?v= dans index.html. */
 
-const VERSION = "laformule-20260904b";
+const VERSION = "laformule-20260904c";
 const SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260904b",
-  "/script.js?v=20260904b",
-  "/snack-runtime.js?v=20260904b",
-  "/config/laformule59.config.js?v=20260904b",
+  "/styles.css?v=20260904c",
+  "/script.js?v=20260904c",
+  "/snack-runtime.js?v=20260904c",
+  "/config/laformule59.config.js?v=20260904c",
   "/manifest.webmanifest",
   "/images/logoformule.webp",
   "/images/heroformule.webp",

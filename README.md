@@ -80,6 +80,13 @@ message. Le code vit dans `snack-runtime.js` (section « ASSISTANT DE PERSONNALI
   `1234` par défaut, **à changer**). Liste des commandes du jour, bip et vibration à chaque
   nouvelle commande, boutons « Commencer (prête dans 10/20/30/45 min) », « Prête » ou « Partie
   en livraison », « Remise / Livrée », « Annuler », appel et WhatsApp du client en un tap.
+- **Message WhatsApp** structuré : en-tête (n°, client avec téléphone au format +33 cliquable,
+  mode, heure), bloc PRODUITS avec la **catégorie en gras** (`*TACOS*`, `*SANDWICH* Kebab (menu)`)
+  et les options en puces, bloc PAIEMENT (sous-total, livraison, TOTAL). En livraison : adresse,
+  lien Google Maps, moyen de paiement choisi par le client (`ordering.delivery.paymentMethods`) et,
+  en espèces, le billet utilisé et la **monnaie à prévoir**. Le message peut être transféré tel quel
+  au livreur. La page cuisine a aussi un bouton « Envoyer au livreur » (numéro
+  `ordering.delivery.driverWhatsApp`, sinon choix du contact) avec un récap livreur.
 - Si l'API est injoignable, le ticket fonctionne comme avant (envoi WhatsApp seul).
 
 ## Application installable (PWA)

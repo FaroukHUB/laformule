@@ -1490,6 +1490,16 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
               <p id="ticket-delivery-info" class="ticket-note"></p>
             </section>
 
+            <section id="ticket-payment" class="hidden ticket-section">
+              <h4 class="ticket-section-title">Paiement à la livraison <span class="req">*</span></h4>
+              <div id="ticket-payment-buttons" class="ticket-choices"></div>
+              <div id="ticket-cash" class="hidden">
+                <p class="ticket-label">Vous payez avec :</p>
+                <div id="ticket-cash-buttons" class="ticket-choices"></div>
+                <p id="ticket-cash-info" class="ticket-note"></p>
+              </div>
+            </section>
+
             <section class="ticket-section">
               <label for="ticket-time" class="ticket-label">Heure souhaitée</label>
               <select id="ticket-time" class="ticket-input">
@@ -1704,6 +1714,14 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
     if (action === "open-status") {
       openStatusSheet();
+    }
+
+    if (action === "set-payment") {
+      setPaymentMethod(actionEl.dataset.method);
+    }
+
+    if (action === "set-cash") {
+      setCash(parseInt(actionEl.dataset.cash, 10) || 0);
     }
   }
 
@@ -2973,6 +2991,9 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     ticketSent = null;
     tracking = null;
     stopTrackingPoll();
+    const msg = ticketPanel && ticketPanel.querySelector("#ticket-message");
+    if (msg) msg.value = "";
+    if (orderMeta.payment) orderMeta.payment.cash = null;
     renderTicketPanel();
     applyHeroActions();
   }
@@ -3097,6 +3118,8 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
             : "");
       }
     }
+
+    renderPaymentBlock(totals);
 
     const note = ticketPanel.querySelector("#ticket-mode-note");
     if (note) {
@@ -3752,11 +3775,12 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     const qty = line.quantity > 0 ? line.quantity : 1;
     return {
       name: line.productName,
+      category: categoryLabel(line.categoryId),
       qty,
       variant: line.variant === "menu" ? "menu" : "solo",
       details: lineDetailsForRecap(line)
         .map(([k, v]) => `${k} : ${v}`)
-        .join(" · "),
+        .join(" | "),
       total: line.lineTotal || 0,
     };
   }
@@ -3771,6 +3795,11 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       address: orderMeta.address || "",
       time: orderMeta.time || "Dès que possible",
       message: inputs.message || "",
+      phoneIntl: formatPhoneIntl(inputs.phone),
+      payment: (() => { const d = describePayment(totals.total); return d ? d.id : ""; })(),
+      paymentLabel: (() => { const d = describePayment(totals.total); return d ? `${d.label}${d.changeText ? " · " + d.changeText : ""}` : ""; })(),
+      cash: (() => { const d = describePayment(totals.total); return d && typeof d.cash === "number" ? d.cash : null; })(),
+      change: (() => { const d = describePayment(totals.total); return d && d.change != null ? d.change : null; })(),
       lines: asArray(ticketLines).map(lineToPayload),
       subtotal: totals.subtotal,
       fee: totals.fee,
@@ -4258,6 +4287,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       <div class="status-summary">
         <div class="status-row"><span>${mode.icon || ""} ${mode.label}${totals.isDelivery && orderMeta.address ? ` · ${orderMeta.address}` : ""}</span></div>
         <div class="status-row"><span>🕒 ${orderMeta.time || "Dès que possible"}</span></div>
+        ${(() => { const d = totals.isDelivery ? describePayment(totals.total) : null; return d ? `<div class="status-row"><span>${d.label}${d.change != null && d.change > 0 ? ` · monnaie à rendre ${formatEuro(d.change)}` : d.cash === 0 ? " · appoint" : ""}</span></div>` : ""; })()}
         ${
           lines.length
             ? `<ul class="status-lines">${lines
@@ -4281,6 +4311,149 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
   }
 
   // ==========================================================================
+  // PAIEMENT À LA LIVRAISON + HELPERS DE MESSAGE
+  // ==========================================================================
+  const DEFAULT_PAYMENT_METHODS = [
+    { id: "cb", label: "Carte bancaire", icon: "💳" },
+    { id: "especes", label: "Espèces", icon: "💵" },
+    { id: "ticket-resto", label: "Ticket resto", icon: "🎫" },
+  ];
+  const CASH_CHOICES = [0, 20, 50, 100];
+
+  function getPaymentMethods() {
+    const d = getDeliveryCfg();
+    const list = Array.isArray(d.paymentMethods) ? d.paymentMethods.filter((m) => m && m.id) : [];
+    return list.length ? list : DEFAULT_PAYMENT_METHODS;
+  }
+
+  function getPayment() {
+    if (!orderMeta.payment || typeof orderMeta.payment !== "object") {
+      orderMeta.payment = { method: null, cash: null };
+    }
+    return orderMeta.payment;
+  }
+
+  function paymentMethodDef(id) {
+    return getPaymentMethods().find((m) => m.id === id) || null;
+  }
+
+  // Décrit le paiement : { label, changeText, change }
+  function describePayment(total) {
+    const pay = getPayment();
+    const def = paymentMethodDef(pay.method);
+    if (!def) return null;
+    let changeText = "";
+    let change = null;
+    if (def.id === "especes") {
+      if (pay.cash === 0) {
+        changeText = "le client fait l'appoint";
+      } else if (typeof pay.cash === "number" && pay.cash > 0) {
+        change = Math.max(0, pay.cash - total);
+        changeText =
+          pay.cash >= total
+            ? `le client paie avec ${formatEuro(pay.cash)} → rendre ${formatEuro(change)}`
+            : `le client paie avec ${formatEuro(pay.cash)} (insuffisant, à vérifier)`;
+      }
+    }
+    return { id: def.id, label: `${def.icon || ""} ${def.label}`.trim(), changeText, change, cash: pay.cash };
+  }
+
+  function formatPhoneIntl(raw) {
+    const digits = (raw || "").replace(/[^\d+]/g, "");
+    if (/^0\d{9}$/.test(digits)) {
+      const n = "+33" + digits.slice(1);
+      return n.replace(/^(\+33)(\d)(\d{2})(\d{2})(\d{2})(\d{2})$/, "$1 $2 $3 $4 $5 $6");
+    }
+    if (/^\+33\d{9}$/.test(digits)) {
+      return digits.replace(/^(\+33)(\d)(\d{2})(\d{2})(\d{2})(\d{2})$/, "$1 $2 $3 $4 $5 $6");
+    }
+    if (/^33\d{9}$/.test(digits)) {
+      return ("+" + digits).replace(/^(\+33)(\d)(\d{2})(\d{2})(\d{2})(\d{2})$/, "$1 $2 $3 $4 $5 $6");
+    }
+    return raw || "";
+  }
+
+  function mapsLink(address) {
+    const a = (address || "").trim();
+    const low = a.toLowerCase();
+    const city = cfg.location && cfg.location.city ? cfg.location.city : "";
+    const known = [city].concat(asArray(getDeliveryCfg().zones)).filter(Boolean);
+    const hasCity = /\b\d{5}\b/.test(a) || known.some((z) => low.includes(z.toLowerCase().split(/[\s-]/)[0]));
+    const q = hasCity || !city ? a : `${a}, ${city}`;
+    return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
+  }
+
+  // Libellé de catégorie au singulier, en majuscules : "Sandwichs" → "SANDWICH"
+  function categoryLabel(categoryId) {
+    const cat = (cfg.menu && cfg.menu.categories || []).find((c) => c.id === categoryId);
+    if (cat && cat.labelSingular) return String(cat.labelSingular).toUpperCase();
+    let name = cat && cat.name ? cat.name : categoryId || "Produit";
+    name = name.replace(/^nos\s+|^les\s+/i, "").trim();
+    const lower = name.toLowerCase();
+    const keep = ["tacos", "tex mex", "kapsaloon", "kapsalon", "menu enfant", "menu-enfant"];
+    if (!keep.includes(lower) && /s$/i.test(name) && name.length > 4) {
+      name = name.slice(0, -1);
+    }
+    return name.toUpperCase();
+  }
+
+  function lineTitleForMessage(line) {
+    const label = categoryLabel(line.categoryId);
+    const name = line.productName || "";
+    const sameAsCat = name.trim().toLowerCase() === label.toLowerCase();
+    const variant = line.variant === "menu" ? " (menu)" : "";
+    return sameAsCat ? `*${label}*${variant}` : `*${label}* ${name}${variant}`;
+  }
+
+  function setPaymentMethod(id) {
+    if (!paymentMethodDef(id)) return;
+    const pay = getPayment();
+    pay.method = id;
+    if (id !== "especes") pay.cash = null;
+    renderOrderMeta();
+    saveTicketState();
+  }
+
+  function setCash(value) {
+    const pay = getPayment();
+    pay.cash = value;
+    renderOrderMeta();
+    saveTicketState();
+  }
+
+  function renderPaymentBlock(totals) {
+    const block = ticketPanel.querySelector("#ticket-payment");
+    if (!block) return;
+    block.classList.toggle("hidden", !totals.isDelivery);
+    if (!totals.isDelivery) return;
+    const pay = getPayment();
+    const methods = getPaymentMethods();
+    const buttons = block.querySelector("#ticket-payment-buttons");
+    buttons.innerHTML = methods
+      .map(
+        (m) => `
+        <button type="button" data-ticket-action="set-payment" data-method="${m.id}"
+                class="ticket-choice${pay.method === m.id ? " on" : ""}">${m.icon || ""} ${m.label}</button>`
+      )
+      .join("");
+    const cashBlock = block.querySelector("#ticket-cash");
+    const showCash = pay.method === "especes";
+    cashBlock.classList.toggle("hidden", !showCash);
+    if (showCash) {
+      const choices = cashBlock.querySelector("#ticket-cash-buttons");
+      choices.innerHTML = CASH_CHOICES.map((c) => {
+        const on = pay.cash === c;
+        const label = c === 0 ? "Appoint" : formatEuro(c).replace(",00", "");
+        const off = c > 0 && c < totals.total;
+        return `<button type="button" data-ticket-action="set-cash" data-cash="${c}" class="ticket-choice${on ? " on" : ""}${off ? " off" : ""}" ${off ? "disabled" : ""}>${label}</button>`;
+      }).join("");
+      const info = cashBlock.querySelector("#ticket-cash-info");
+      const d = describePayment(totals.total);
+      info.textContent = d && d.changeText ? d.changeText.replace("le client paie", "Vous payez").replace("le client fait l'appoint", "Vous faites l'appoint") : "Indiquez avec quel billet vous payez : le livreur préparera la monnaie.";
+    }
+  }
+
+  // ==========================================================================
   // PARTAGE DU TICKET
   // ==========================================================================
 
@@ -4290,10 +4463,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     const nameInput = ticketPanel.querySelector("#ticket-name");
     const phoneInput = ticketPanel.querySelector("#ticket-phone");
     const msgInput = ticketPanel.querySelector("#ticket-message");
-
-    if (!nameInput || !phoneInput || !msgInput) {
-      return null;
-    }
+    if (!nameInput || !phoneInput || !msgInput) return null;
 
     const name = (nameInput.value || "").trim();
     const phone = (phoneInput.value || "").trim();
@@ -4302,17 +4472,13 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     phoneInput.classList.remove("ring-2", "ring-red-400");
 
     if (!name || !phone) {
-      if (!name) {
-        nameInput.classList.add("ring-2", "ring-red-400");
-      }
-      if (!phone) {
-        phoneInput.classList.add("ring-2", "ring-red-400");
-      }
+      if (!name) nameInput.classList.add("ring-2", "ring-red-400");
+      if (!phone) phoneInput.classList.add("ring-2", "ring-red-400");
+      (!name ? nameInput : phoneInput).focus();
       return null;
     }
 
     const safeLines = asArray(ticketLines);
-
     if (!safeLines.length) {
       alert("Ajoutez au moins un produit dans le ticket.");
       return null;
@@ -4323,6 +4489,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     const addressInput = ticketPanel.querySelector("#ticket-address");
     if (addressInput) addressInput.classList.remove("ring-2", "ring-red-400");
 
+    let payment = null;
     if (totals.isDelivery) {
       const address = addressInput ? addressInput.value.trim() : "";
       if (!address) {
@@ -4334,133 +4501,69 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       }
       orderMeta.address = address;
       if (totals.belowMinimum) {
-        alert(
-          `Minimum ${formatEuro(totals.minimumOrder)} pour la livraison : il manque ${formatEuro(totals.missing)}.`
-        );
+        alert(`Minimum ${formatEuro(totals.minimumOrder)} pour la livraison : il manque ${formatEuro(totals.missing)}.`);
+        return null;
+      }
+      payment = describePayment(totals.total);
+      if (!payment) {
+        showToast({ icon: "💶", type: "warning", title: "Paiement", message: "Choisissez comment vous réglez le livreur.", duration: 3500 });
+        const pb = ticketPanel.querySelector("#ticket-payment");
+        if (pb) pb.scrollIntoView({ behavior: "smooth", block: "center" });
+        return null;
+      }
+      if (payment.id === "especes" && payment.cash == null) {
+        showToast({ icon: "💵", type: "warning", title: "Espèces", message: "Indiquez avec quel billet vous payez (ou appoint).", duration: 3500 });
         return null;
       }
     }
 
-    const total = totals.total;
+    pendingOrderId = makeOrderId();
+    const phoneIntl = formatPhoneIntl(phone);
+    const timeLabel = orderMeta.time || "Dès que possible";
 
-    const linesText = safeLines
-      .map((line) => {
-        const variantLabel = line.variant === "menu" ? "menu" : "seul";
-        const supplements = asArray(line.supplements);
-        const removedIngredients = asArray(line.removedIngredients);
+    // ---- En-tête
+    const head = [
+      `🧾 *COMMANDE ${snackName.toUpperCase()}* · N° ${pendingOrderId}`,
+      `👤 ${name} · ${phoneIntl}`,
+    ];
+    if (totals.isDelivery) {
+      head.push(`🛵 *LIVRAISON* · 🕒 ${timeLabel}`);
+      head.push(`📍 ${orderMeta.address}`);
+      head.push(`🗺️ ${mapsLink(orderMeta.address)}`);
+    } else {
+      head.push(`${mode.icon || ""} *${mode.label.toUpperCase()}* · 🕒 ${timeLabel}`);
+    }
 
-        const qty = line.quantity && line.quantity > 0 ? line.quantity : 1;
+    // ---- Produits
+    const products = safeLines.map((line) => {
+      const qty = line.quantity > 0 ? line.quantity : 1;
+      const details = lineDetailsForRecap(line).map(([k, v]) => `   • ${k} : ${v}`);
+      return [`${qty} × ${lineTitleForMessage(line)}`].concat(details).concat([`   = ${formatEuro(line.lineTotal || 0)}`]).join("\n");
+    });
 
-        const categoryLabel = line.categoryId
-          ? line.categoryId.charAt(0).toUpperCase() + line.categoryId.slice(1)
-          : "Produit";
-
-        const parts = [
-          qty > 1
-            ? `- [${categoryLabel}] ${line.productName} (${variantLabel}) x${qty}`
-            : `- [${categoryLabel}] ${line.productName} (${variantLabel})`,
-        ];
-
-        if (line.categoryId === "tacos") {
-          const base = getTacosBaseForLine(line);
-          if (base && base.label) parts.push(`*TAILLE :* ${base.label}`);
-          const meats = asArray(line.tacosMeats);
-          if (meats.length) parts.push(`*VIANDES :* ${meats.join(", ")}`);
-          const sauces = asArray(line.tacosSauces);
-          if (sauces.length) parts.push(`*SAUCES :* ${sauces.join(", ")}`);
-          const veggies = asArray(line.tacosVeggies);
-          if (veggies.length) parts.push(`*CRUDITÉS :* ${veggies.join(", ")}`);
-        }
-
-        if (line.categoryId === "kapsaloon") {
-          const base = getKapsaloonBaseForLine(line);
-          if (base && base.label) parts.push(`*TAILLE :* ${base.label}`);
-          const meats = asArray(line.kapsaloonMeats);
-          if (meats.length) parts.push(`*VIANDES :* ${meats.join(", ")}`);
-          const sauces = asArray(line.kapsaloonSauces);
-          if (sauces.length) parts.push(`*SAUCES :* ${sauces.join(", ")}`);
-        }
-
-        const sauceCategories = [
-          "burgers",
-          "sandwichs",
-          "paninis",
-          "signatures",
-          "galettes",
-        ];
-
-        if (sauceCategories.includes(line.categoryId) && line.mainSauce) {
-          const sauces = Array.isArray(line.mainSauce)
-            ? line.mainSauce
-            : [line.mainSauce];
-
-          if (sauces.length === 1) {
-            parts.push(`*SAUCE :* ${sauces[0]}`);
-          } else if (sauces.length > 1) {
-            parts.push(`*SAUCES :* ${sauces.join(", ")}`);
-          }
-        }
-
-        if (supplements.length && cfg.supplements?.catalog) {
-          const names = supplements
-            .map((id) => cfg.supplements.catalog[id]?.name)
-            .filter(Boolean);
-          if (names.length) {
-            parts.push(`*SUPPLÉMENTS :* ${names.join(", ")}`);
-          }
-        }
-
-        if (removedIngredients.length) {
-          parts.push(`*SANS :* ${removedIngredients.join(", ")}`);
-        }
-
-        if (line.categoryId === "menu-enfant" && line.kidsChoice) {
-          const kidsOpts = asArray(getLineItem(line).kidsOptions);
-          const opt = kidsOpts.find((o) => o.id === line.kidsChoice);
-          parts.push(`*PLAT ENFANT :* ${opt ? opt.name : line.kidsChoice}`);
-        }
-
-        if (line.variant === "menu" && line.drinkChoice) {
-          const drink = getMenuDrinks().find((d) => d.id === line.drinkChoice);
-          const drinkName = (drink && drink.name) || line.drinkChoice;
-          parts.push(`*BOISSON :* ${drinkName} (incluse)`);
-        }
-
-        parts.push(`= ${(line.lineTotal || 0).toFixed(2)} €`);
-
-        return parts.join(" | ");
-      })
-      .join("\n");
+    // ---- Paiement
+    const pay = [];
+    if (totals.isDelivery && typeof getDeliveryCfg().fee === "number") {
+      pay.push(`Sous-total : ${formatEuro(totals.subtotal)}`);
+      pay.push(`Livraison : ${totals.fee > 0 ? formatEuro(totals.fee) : "offerte"}`);
+    }
+    pay.push(`*TOTAL : ${formatEuro(totals.total)}*`);
+    if (payment) {
+      pay.push(`Paiement : ${payment.label}${payment.changeText ? ` · ${payment.changeText}` : ""}`);
+      if (payment.change != null && payment.change > 0) pay.push(`💰 *Monnaie à prévoir : ${formatEuro(payment.change)}*`);
+    }
 
     const extra = (msgInput.value || "").trim();
 
-    pendingOrderId = makeOrderId();
-    const headerLines = [
-      `Commande ${snackName} – ${name} (${phone})`,
-      `N° ${pendingOrderId}`,
-      `${mode.icon ? mode.icon + " " : ""}${mode.label}${
-        totals.isDelivery && orderMeta.address ? ` – ${orderMeta.address}` : ""
-      }`,
-      `🕒 ${orderMeta.time ? orderMeta.time : "Dès que possible"}`,
-    ];
-
-    const totalLines = [];
-    if (totals.isDelivery && typeof getDeliveryCfg().fee === "number") {
-      totalLines.push(`Sous-total : ${totals.subtotal.toFixed(2)} €`);
-      totalLines.push(
-        `Frais de livraison : ${totals.fee > 0 ? totals.fee.toFixed(2) + " €" : "offerts"}`
-      );
-    }
-    totalLines.push(`Total : ${total.toFixed(2)} €`);
-
     const txt =
-      `${headerLines.join("\n")}\n\n` +
-      `${linesText}\n\n` +
-      totalLines.join("\n") +
-      (extra ? `\n\nMessage : ${extra}` : "");
+      head.join("\n") +
+      `\n\n*🍽️ PRODUITS*\n` +
+      products.join("\n") +
+      `\n\n*💶 PAIEMENT*\n` +
+      pay.join("\n") +
+      (extra ? `\n\n💬 *Message :* ${extra}` : "");
 
     const encoded = encodeURIComponent(txt);
-
     return { txt, encoded };
   }
 

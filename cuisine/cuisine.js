@@ -104,6 +104,48 @@
     }
   }
 
+  // --------------------------------------------------------------- livreur
+  function mapsLink(address) {
+    const a = (address || "").trim();
+    const low = a.toLowerCase();
+    const city = (cfg.location && cfg.location.city) || "";
+    const zones = (cfg.ordering && cfg.ordering.delivery && cfg.ordering.delivery.zones) || [];
+    const known = [city].concat(zones).filter(Boolean);
+    const hasCity = /\b\d{5}\b/.test(a) || known.some((z) => low.includes(z.toLowerCase().split(/[\s-]/)[0]));
+    return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(hasCity || !city ? a : `${a}, ${city}`);
+  }
+  function driverLine(l) {
+    const cat = (l.category || "").toUpperCase();
+    const same = (l.name || "").trim().toLowerCase() === cat.toLowerCase();
+    const title = `${l.qty > 1 ? l.qty : 1} × *${cat}*${same ? "" : " " + l.name}${l.variant === "menu" ? " (menu)" : ""}`;
+    const details = l.details ? l.details.split(" | ").map((d) => `   • ${d}`) : [];
+    return [title].concat(details).join("\n");
+  }
+  function driverMessage(o) {
+    const head = [
+      `🛵 *LIVRAISON ${(cfg.name || "").toUpperCase()}* · N° ${o.id}`,
+      `👤 ${o.name} · ${o.phoneIntl || o.phone}`,
+      `📍 ${o.address || "adresse non renseignée"}`,
+      o.address ? `🗺️ ${mapsLink(o.address)}` : null,
+      `🕒 ${o.time || "Dès que possible"}`,
+    ].filter(Boolean);
+    const pay = [
+      `*💶 À ENCAISSER : ${euro(o.total)}*`,
+      o.paymentLabel ? `Paiement : ${o.paymentLabel}` : "Paiement : non précisé",
+      o.change != null && o.change > 0 ? `💰 *Monnaie à prévoir : ${euro(o.change)}*` : null,
+    ].filter(Boolean);
+    const sections = [head.join("\n"), "*🍽️ PRODUITS*\n" + (o.lines || []).map(driverLine).join("\n"), pay.join("\n")];
+    if (o.message) sections.push(`💬 *Message :* ${o.message}`);
+    return sections.join("\n\n");
+  }
+  function sendToDriver(id) {
+    const o = orders.find((x) => x.id === id);
+    if (!o) return;
+    const number = (cfg.ordering && cfg.ordering.delivery && cfg.ordering.delivery.driverWhatsApp) || "";
+    const url = `https://wa.me/${number}?text=${encodeURIComponent(driverMessage(o))}`;
+    window.open(url, "_blank");
+  }
+
   // ----------------------------------------------------------------- render
   function nextActions(o) {
     const d = o.mode === "livraison";
@@ -116,11 +158,13 @@
           <button class="btn primary" data-status="preparation" data-id="${o.id}" type="button">👨‍🍳 Commencer la préparation</button>
           <button class="btn ghost" data-status="annulee" data-id="${o.id}" type="button">Annuler</button>`;
       case "preparation":
-        return `<button class="btn ok" data-status="${d ? "en_route" : "prete"}" data-id="${o.id}" type="button">${d ? "🛵 Partie en livraison" : "✅ Commande prête"}</button>
+        return `${d ? `<button class="btn" data-driver="${o.id}" type="button">📤 Envoyer au livreur</button>` : ""}
+                <button class="btn ok" data-status="${d ? "en_route" : "prete"}" data-id="${o.id}" type="button">${d ? "🛵 Partie en livraison" : "✅ Commande prête"}</button>
                 <button class="btn ghost" data-status="annulee" data-id="${o.id}" type="button">Annuler</button>`;
       case "prete":
       case "en_route":
-        return `<button class="btn" data-status="terminee" data-id="${o.id}" type="button">🏁 ${d ? "Livrée" : "Remise au client"}</button>`;
+        return `${d ? `<button class="btn ghost" data-driver="${o.id}" type="button">📤 Livreur</button>` : ""}
+                <button class="btn" data-status="terminee" data-id="${o.id}" type="button">🏁 ${d ? "Livrée" : "Remise au client"}</button>`;
       default:
         return `<button class="btn ghost" data-status="recue" data-id="${o.id}" type="button">↩︎ Réouvrir</button>`;
     }
@@ -148,11 +192,12 @@
           <a href="tel:${esc(o.phone)}">📞 ${esc(o.phone)}</a>
           ${wa ? `<a href="https://wa.me/${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>` : ""}
         </div>
-        ${o.address ? `<div class="addr">📍 ${esc(o.address)}</div>` : ""}
+        ${o.address ? `<div class="addr">📍 ${esc(o.address)} · <a href="${mapsLink(o.address)}" target="_blank" rel="noopener">Itinéraire</a></div>` : ""}
+        ${o.mode === "livraison" ? `<div class="addr pay">💶 ${o.paymentLabel ? esc(o.paymentLabel) : "Paiement non précisé"}</div>` : ""}
         <ul class="lines">
           ${(o.lines || []).map((l) => `
             <li><span class="q">${l.qty > 1 ? l.qty + "×" : "1×"}</span>
-                <span><strong>${esc(l.name)}</strong>${l.variant === "menu" ? " <em>(menu)</em>" : ""}${l.details ? `<span class="d">${esc(l.details)}</span>` : ""}</span>
+                <span>${l.category ? `<span class="cat">${esc(l.category)}</span> ` : ""}<strong>${esc(l.name)}</strong>${l.variant === "menu" ? " <em>(menu)</em>" : ""}${l.details ? `<span class="d">${esc(l.details.split(" | ").join(" · "))}</span>` : ""}</span>
                 <span class="p">${euro(l.total)}</span></li>`).join("")}
         </ul>
         ${o.message ? `<div class="msg">💬 ${esc(o.message)}</div>` : ""}
@@ -222,6 +267,8 @@
   $("#list").addEventListener("click", (e) => {
     const eta = e.target.closest("[data-eta]");
     if (eta) { etaChoice[eta.dataset.id] = parseInt(eta.dataset.eta, 10); render(); return; }
+    const drv = e.target.closest("[data-driver]");
+    if (drv) { sendToDriver(drv.dataset.driver); return; }
     const btn = e.target.closest("[data-status]");
     if (!btn) return;
     if (btn.dataset.status === "annulee" && !confirm(`Annuler la commande ${btn.dataset.id} ?`)) return;

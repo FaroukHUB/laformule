@@ -1277,3 +1277,9 @@ textarea.ticket-input{ resize:none; }
 .ticket-actions .wizard-btn.primary:disabled, .ticket-actions .wizard-btn.disabled{ opacity:.55; pointer-events:none; }
 .ticket-actions .wizard-btn.secondary{ flex:0 0 auto; }
 .ticket-share-link{ width:100%; background:none; border:0; color:#64748b; font-size:.8rem; font-weight:600; text-decoration:underline; padding:.2rem; }
+
+.ticket-choices{ display:flex; flex-wrap:wrap; gap:.5rem; }
+.ticket-choice{ flex:1 1 auto; padding:.7rem .8rem; border-radius:.9rem; border:2px solid #e2e8f0; background:#fff; font-weight:700; font-size:.85rem; color:#0f172a; }
+.ticket-choice.on{ border-color:var(--brand); background:color-mix(in srgb, var(--brand) 8%, white); color:var(--brand); }
+.ticket-choice.off{ opacity:.4; }
+#ticket-cash.hidden, #ticket-payment.hidden{ display:none; }

@@ -67,6 +67,14 @@ window.SNACK_CONFIG = {
       fee: 2.5,            // ⚠️ à confirmer avec le restaurant
       freeFrom: null,      // ex. 25 => frais offerts dès 25 €
       estimatedTime: "30 à 60 min",
+      // Moyens de paiement proposés au client pour la livraison
+      paymentMethods: [
+        { id: "cb", label: "Carte bancaire (TPE)", icon: "💳" },
+        { id: "especes", label: "Espèces", icon: "💵" },
+        { id: "ticket-resto", label: "Ticket restaurant", icon: "🎫" }
+      ],
+      // WhatsApp du livreur (sans + ni espaces, ex. "33612345678"). Vide = choisir le contact à l'envoi.
+      driverWhatsApp: "",
       zones: [
         "Marcq-en-Barœul",
         "Marquette-lez-Lille",
