@@ -1417,6 +1417,31 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     return Array.isArray(value) ? value : [];
   }
 
+  var ticketStep = 1;
+
+  function openTicket(step) {
+    ensureTicketShell();
+    if (step) ticketStep = step;
+    ticketPanel.classList.remove("hidden");
+    document.body.classList.add("wizard-lock");
+    renderTicketPanel();
+    const scroll = ticketPanel.querySelector(".ticket-scroll");
+    if (scroll) scroll.scrollTop = 0;
+  }
+
+  function closeTicket() {
+    if (!ticketPanel) return;
+    ticketPanel.classList.add("hidden");
+    if (!wizardOpen && !statusOpen) document.body.classList.remove("wizard-lock");
+  }
+
+  function setTicketStep(step) {
+    ticketStep = step;
+    renderTicketPanel();
+    const scroll = ticketPanel && ticketPanel.querySelector(".ticket-scroll");
+    if (scroll) scroll.scrollTop = 0;
+  }
+
   function ensureTicketShell() {
     if (ticketPanel && ticketToggle) return;
 
@@ -1429,89 +1454,80 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
     ticketPanel = document.createElement("aside");
     ticketPanel.id = "ticket-panel";
-    ticketPanel.className =
-      "fixed inset-x-0 bottom-0 z-[9999] md:left-4 md:right-auto md:bottom-20 md:w-80 max-h-[95vh] bg-white rounded-t-3xl md:rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden hidden";
+    ticketPanel.className = "ticket-sheet hidden";
 
     ticketPanel.innerHTML = `
-      <div class="flex items-center justify-between px-4 py-3 border-b">
-        <div class="flex items-center gap-2">
-          <span class="text-lg">🎟️</span>
-          <p class="font-semibold text-sm">Ticket</p>
-        </div>
-        <button type="button" class="text-slate-500 text-xl leading-none" data-ticket-action="close">&times;</button>
-      </div>
-
-      <div id="ticket-body" class="p-4 flex-1 overflow-y-auto space-y-4 text-sm"></div>
-
-      <div class="px-4 pb-4 pt-2 border-t space-y-3 bg-slate-50/80">
-        <div class="space-y-1">
-          <p class="text-xs text-slate-500">Mode de commande</p>
-          <div id="ticket-mode-buttons" class="flex gap-1"></div>
-          <p id="ticket-mode-note" class="hidden text-[11px] text-slate-500"></p>
-        </div>
-
-        <div id="ticket-delivery" class="hidden space-y-1">
-          <label for="ticket-address" class="text-xs text-slate-500">Adresse de livraison <span class="text-red-500">*</span></label>
-          <input id="ticket-address" type="text" autocomplete="street-address"
-                 class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                 placeholder="N°, rue, ville (et étage / code si besoin)" />
-          <p id="ticket-delivery-info" class="text-[11px] text-slate-500"></p>
-        </div>
-
-        <div class="flex flex-col gap-1">
-          <label for="ticket-time" class="text-xs text-slate-500">Heure souhaitée</label>
-          <select id="ticket-time"
-                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ring)]">
-            <option value="">Dès que possible</option>
-          </select>
-        </div>
-
-        <div class="flex flex-col gap-1">
-          <label for="ticket-name" class="text-xs text-slate-500">Prénom <span class="text-red-500">*</span></label>
-          <input id="ticket-name" type="text"
-                 class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                 placeholder="Votre prénom" />
-        </div>
-
-        <div class="flex flex-col gap-1">
-          <label for="ticket-phone" class="text-xs text-slate-500">Téléphone <span class="text-red-500">*</span></label>
-          <input id="ticket-phone" type="tel"
-                 class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                 placeholder="Votre numéro" />
-        </div>
-
-        <div class="flex flex-col gap-1">
-          <label for="ticket-message" class="text-xs text-slate-500">Message (optionnel)</label>
-          <textarea id="ticket-message" rows="2"
-                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                    placeholder="Précision, heure souhaitée, etc."></textarea>
-        </div>
-
-        <div class="space-y-1">
-          <div id="ticket-subtotal-row" class="hidden flex items-center justify-between text-xs text-slate-500">
-            <span>Sous-total</span>
-            <span id="ticket-subtotal">0,00 €</span>
+      <div class="wizard-backdrop" data-ticket-action="close"></div>
+      <div class="ticket-card" role="dialog" aria-modal="true" aria-labelledby="ticket-title">
+        <header class="wizard-head">
+          <span class="status-emoji">🎟️</span>
+          <div class="min-w-0 flex-1">
+            <p id="ticket-title" class="wizard-product">Mon ticket</p>
+            <p id="ticket-subtitle" class="wizard-variant"></p>
           </div>
-          <div id="ticket-fee-row" class="hidden flex items-center justify-between text-xs text-slate-500">
-            <span>Frais de livraison</span>
-            <span id="ticket-fee">0,00 €</span>
+          <button type="button" class="wizard-close" data-ticket-action="close" aria-label="Fermer">×</button>
+        </header>
+
+        <ol class="wizard-progress" id="ticket-steps">
+          <li class="current" data-ticket-action="go-step" data-step="1"><span class="wizard-step-dot">1</span><span class="wizard-step-label">Mon ticket</span></li>
+          <li class="todo" data-ticket-action="go-step" data-step="2"><span class="wizard-step-dot">2</span><span class="wizard-step-label">Finaliser</span></li>
+        </ol>
+
+        <div class="ticket-scroll">
+          <div id="ticket-body" class="ticket-step" data-step="1"></div>
+
+          <div id="ticket-form" class="ticket-step ticket-form" data-step="2">
+            <section class="ticket-section">
+              <h4 class="ticket-section-title">Comment souhaitez-vous récupérer votre commande ?</h4>
+              <div id="ticket-mode-buttons" class="ticket-modes"></div>
+              <p id="ticket-mode-note" class="hidden ticket-note"></p>
+            </section>
+
+            <section id="ticket-delivery" class="hidden ticket-section">
+              <label for="ticket-address" class="ticket-label">Adresse de livraison <span class="req">*</span></label>
+              <input id="ticket-address" type="text" autocomplete="street-address" class="ticket-input"
+                     placeholder="N°, rue, ville (et étage / code si besoin)" />
+              <p id="ticket-delivery-info" class="ticket-note"></p>
+            </section>
+
+            <section class="ticket-section">
+              <label for="ticket-time" class="ticket-label">Heure souhaitée</label>
+              <select id="ticket-time" class="ticket-input">
+                <option value="">Dès que possible</option>
+              </select>
+            </section>
+
+            <section class="ticket-section">
+              <h4 class="ticket-section-title">Vos coordonnées</h4>
+              <label for="ticket-name" class="ticket-label">Prénom <span class="req">*</span></label>
+              <input id="ticket-name" type="text" autocomplete="given-name" class="ticket-input" placeholder="Votre prénom" />
+              <label for="ticket-phone" class="ticket-label">Téléphone <span class="req">*</span></label>
+              <input id="ticket-phone" type="tel" autocomplete="tel" class="ticket-input" placeholder="Votre numéro" />
+              <label for="ticket-message" class="ticket-label">Message (optionnel)</label>
+              <textarea id="ticket-message" rows="2" class="ticket-input" placeholder="Précision, allergie, code d'entrée…"></textarea>
+            </section>
           </div>
-          <div class="flex items-center justify-between text-sm font-semibold">
-            <span>Total</span>
-            <span id="ticket-total">0,00 €</span>
-          </div>
-          <p id="ticket-minimum-warning" class="hidden text-[11px] text-red-600 font-semibold"></p>
         </div>
 
-        <button id="ticket-share-restaurant" type="button"
-                class="w-full btn-brand rounded-full py-2 text-sm font-semibold flex items-center justify-center gap-2">
-          <span>Envoyer la commande sur WhatsApp</span>
-        </button>
+        <footer class="ticket-foot">
+          <div class="ticket-totals">
+            <div id="ticket-subtotal-row" class="hidden ticket-total-row muted"><span>Sous-total</span><span id="ticket-subtotal">0,00 €</span></div>
+            <div id="ticket-fee-row" class="hidden ticket-total-row muted"><span>Frais de livraison</span><span id="ticket-fee">0,00 €</span></div>
+            <div class="ticket-total-row big"><span>Total</span><span id="ticket-total">0,00 €</span></div>
+            <p id="ticket-minimum-warning" class="hidden ticket-warning"></p>
+          </div>
 
-        <button id="ticket-share" type="button"
-                class="w-full rounded-full py-2 text-sm font-semibold flex items-center justify-center gap-2 border border-slate-300 text-slate-700 bg-white">
-          <span>Partager le ticket</span>
-        </button>
+          <div class="ticket-actions" data-step="1">
+            <button type="button" class="wizard-btn secondary" data-ticket-action="close">+ Ajouter des produits</button>
+            <button id="ticket-continue" type="button" class="wizard-btn primary" data-ticket-action="go-step" data-step="2">Continuer →</button>
+          </div>
+
+          <div class="ticket-actions" data-step="2">
+            <button type="button" class="wizard-btn secondary" data-ticket-action="go-step" data-step="1">← Retour</button>
+            <button id="ticket-share-restaurant" type="button" class="wizard-btn primary">Envoyer la commande sur WhatsApp</button>
+            <button id="ticket-share" type="button" class="ticket-share-link">Partager le ticket autrement</button>
+          </div>
+        </footer>
       </div>
     `;
 
@@ -1519,7 +1535,8 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     document.body.appendChild(ticketPanel);
 
     ticketToggle.addEventListener("click", () => {
-      ticketPanel.classList.toggle("hidden");
+      if (ticketPanel.classList.contains("hidden")) openTicket(1);
+      else closeTicket();
     });
 
     ticketPanel.addEventListener("click", (e) => {
@@ -1565,7 +1582,16 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
   function handleTicketAction(action, actionEl) {
 
     if (action === "close") {
-      ticketPanel.classList.add("hidden");
+      closeTicket();
+    }
+
+    if (action === "go-step") {
+      const step = parseInt(actionEl.dataset.step, 10) === 2 ? 2 : 1;
+      if (step === 2 && !asArray(ticketLines).length) {
+        showToast({ icon: "🛒", type: "warning", title: "Ticket vide", message: "Ajoutez d'abord un produit.", duration: 2500 });
+        return;
+      }
+      setTicketStep(step);
     }
 
     if (action === "add-active-line") {
@@ -2324,8 +2350,8 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     if (safeLines.length) {
       const blockList = document.createElement("div");
       blockList.innerHTML = `
-        <p class="text-xs uppercase tracking-wide text-slate-500 mb-1">Produits du ticket</p>
-        <ul class="space-y-2" id="ticket-lines-list"></ul>
+        <p class="ticket-section-title">Vos produits</p>
+        <ul class="ticket-lines" id="ticket-lines-list"></ul>
       `;
       body.appendChild(blockList);
 
@@ -2333,8 +2359,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
       safeLines.forEach((line) => {
         const li = document.createElement("li");
-        li.className =
-          "flex items-start justify-between gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-xs";
+        li.className = "ticket-line";
 
         const variantLabel = line.variant === "menu" ? "menu" : "seul";
 
@@ -2463,45 +2488,22 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
         }
 
         li.innerHTML = `
-          <div>
-            <p class="font-semibold text-[13px]">
-              ${line.productName}
-              <span class="text-slate-500">(${variantLabel})</span>
-            </p>
+          <div class="ticket-line-main">
+            <p class="ticket-line-name">${line.productName} <span>(${variantLabel})</span></p>
             ${
               details.length
-                ? `<p class="text-[11px] text-slate-500 mt-1">${details.join(
-                    " · "
-                  )}</p>`
+                ? `<ul class="ticket-line-details">${details.map((d) => `<li>${d}</li>`).join("")}</ul>`
                 : ""
             }
+            <button type="button" class="ticket-line-remove" data-ticket-action="remove-line" data-line-id="${line.id}">Retirer</button>
           </div>
-
-          <div class="flex flex-col items-end gap-1">
-            <div class="flex items-center gap-2 text-[11px]">
-              <button type="button"
-                      class="px-2 py-0.5 rounded-full border border-slate-300"
-                      data-ticket-action="dec-qty"
-                      data-line-id="${line.id}">
-                -
-              </button>
-              <span>x${qty}</span>
-              <button type="button"
-                      class="px-2 py-0.5 rounded-full border border-slate-300"
-                      data-ticket-action="inc-qty"
-                      data-line-id="${line.id}">
-                +
-              </button>
+          <div class="ticket-line-side">
+            <div class="wizard-qty-ctrl small">
+              <button type="button" data-ticket-action="dec-qty" data-line-id="${line.id}" aria-label="Moins">−</button>
+              <strong>${qty}</strong>
+              <button type="button" data-ticket-action="inc-qty" data-line-id="${line.id}" aria-label="Plus">+</button>
             </div>
-            <span class="text-[13px] font-semibold">${(
-              line.lineTotal || 0
-            ).toFixed(2)} €</span>
-            <button type="button"
-                    class="text-[11px] text-red-500"
-                    data-ticket-action="remove-line"
-                    data-line-id="${line.id}">
-              Retirer
-            </button>
+            <span class="ticket-line-price">${formatEuro(line.lineTotal || 0)}</span>
           </div>
         `;
 
@@ -2512,9 +2514,10 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
     if (!safeLines.length && !activeLine) {
       const empty = document.createElement("div");
-      empty.className = "text-xs text-slate-500 space-y-2";
+      empty.className = "ticket-empty";
       empty.innerHTML = `
-        <p>Votre ticket est vide. Ajoutez un produit avec le bouton +.</p>
+        <p class="ticket-empty-icon">🛒</p>
+        <p>Votre ticket est vide.<br>Choisissez un produit dans la carte, il apparaîtra ici.</p>
         ${
           lastOrder
             ? `<button type="button"
@@ -2531,6 +2534,25 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
 
     renderOrderMeta();
     saveTicketState();
+
+    if (!safeLines.length && ticketStep === 2) ticketStep = 1;
+    ticketPanel.querySelectorAll(".ticket-step, .ticket-actions").forEach((el) => {
+      el.classList.toggle("hidden", parseInt(el.dataset.step, 10) !== ticketStep);
+    });
+    ticketPanel.querySelectorAll("#ticket-steps li").forEach((li) => {
+      const n = parseInt(li.dataset.step, 10);
+      li.className = n < ticketStep ? "done" : n === ticketStep ? "current" : "todo";
+    });
+    const subtitle = ticketPanel.querySelector("#ticket-subtitle");
+    if (subtitle) {
+      const count = safeLines.reduce((n, l) => n + (l.quantity > 0 ? l.quantity : 1), 0);
+      subtitle.textContent =
+        ticketStep === 1
+          ? count ? `${count} produit${count > 1 ? "s" : ""} · vérifiez puis continuez` : "Aucun produit pour le moment"
+          : "Mode, heure et coordonnées";
+    }
+    const cont = ticketPanel.querySelector("#ticket-continue");
+    if (cont) cont.classList.toggle("disabled", !safeLines.length);
 
     const count = safeLines.reduce((n, l) => n + (l.quantity > 0 ? l.quantity : 1), 0);
     const badge = ticketToggle ? ticketToggle.querySelector("#ticket-count") : null;
@@ -2916,7 +2938,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     if (tracking) startTrackingPoll();
     if (/[?&]open=ticket\b/.test(location.search)) {
       if (ticketSent) openStatusSheet();
-      else ticketPanel.classList.remove("hidden");
+      else openTicket(1);
     }
   }
 
@@ -2981,8 +3003,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
     };
     set("#ticket-name", lastOrder.name);
     set("#ticket-phone", lastOrder.phone);
-    ticketPanel.classList.remove("hidden");
-    renderTicketPanel();
+    openTicket(1);
   }
 
   function describeLastOrder() {
@@ -4075,6 +4096,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
       const what = b.dataset.confirm;
       if (what === "yes") {
         closeConfirmSheet();
+        closeTicket();
         markTicketSent();
         openStatusSheet();
       } else if (what === "retry") {
@@ -4130,9 +4152,7 @@ console.log("🚀 [INIT] snack-runtime.js is loading...");
         if (a === "notify") enableNotifications().then(renderStatusSheet);
         if (a === "ticket") {
           closeStatusSheet();
-          ensureTicketShell();
-          ticketPanel.classList.remove("hidden");
-          renderTicketPanel();
+          openTicket(1);
         }
         if (a === "refresh") {
           pollTracking().then(renderStatusSheet);

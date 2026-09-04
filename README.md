@@ -38,11 +38,10 @@ Ordre de chargement (en bas de `index.html`) : config → `script.js` → `snack
    - **Variante menu** : choix de la boisson incluse dans la catégorie « Boissons ».
 3. « Ajouter au ticket » valide la ligne (au moins une viande pour tacos et kapsalon), fusionne
    les lignes identiques et permet d'ajuster les quantités.
-4. Le panneau demande prénom et téléphone (obligatoires) et un message libre.
-   « Envoyer la commande sur WhatsApp » ouvre une conversation avec le numéro
-   `contact.whatsappOrdersNumber` de la config, message pré‑rempli avec chaque ligne, ses
-   options et le total. « Partager le ticket » utilise le partage natif du téléphone.
-
+4. « Ajouter au ticket » pousse une ligne dans `ticketLines`. Le bouton flottant 🎟️ ouvre le
+   ticket en plein écran, en deux étapes : **Mon ticket** (produits en grandes cartes avec
+   détails, quantité, retrait) puis **Finaliser** (mode, heure, coordonnées). Le total et le
+   bouton d'action restent visibles en bas.
 5. **Mode de commande** : sur place, à emporter ou livraison (liste `ordering.modes`). En
    livraison, l'adresse devient obligatoire, le minimum de commande et les frais de
    `ordering.delivery` s'affichent, et l'envoi est bloqué sous le minimum. Un sélecteur
