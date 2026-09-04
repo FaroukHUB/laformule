@@ -18,6 +18,7 @@ de configuration propre au restaurant.
 | `api/orders.php`, `api/config.php` | API de suivi de commande (voir plus bas) et son code cuisine. |
 | `cuisine/` | Tableau de bord cuisine : commandes en direct, changement de statut. |
 | `manifest.webmanifest`, `sw.js` | Application installable et cache hors ligne. |
+| `.htaccess` | Protection de `.git`, types MIME, en-têtes de cache (code toujours revalidé, images en cache long). |
 | `test-db.php` | Test isolé de connexion PDO à une base MySQL locale (non utilisé). |
 
 Ordre de chargement (en bas de `index.html`) : config → `script.js` → `snack-runtime.js`.
@@ -86,8 +87,8 @@ message. Le code vit dans `snack-runtime.js` (section « ASSISTANT DE PERSONNALI
 `manifest.webmanifest`, icônes `images/icon-*.png` et `sw.js` (précache de la coquille,
 réseau d'abord pour HTML / JS / CSS / config, cache d'abord pour les images, jamais de cache
 pour `/api/`). Un bouton « Installer l'appli » apparaît dans le hero quand le navigateur le
-permet (Android / Chrome) ; sur iPhone il affiche la marche à suivre. Incrémenter `VERSION`
-dans `sw.js` à chaque mise en ligne. Les notifications « commande prête » sont envoyées quand
+permet (Android / Chrome) ; sur iPhone il affiche la marche à suivre. À chaque mise en ligne, changer
+`VERSION` dans `sw.js` **et** le paramètre `?v=` des fichiers CSS / JS dans `index.html` (même valeur). Les notifications « commande prête » sont envoyées quand
 la page ou l'appli est ouverte ; le push en arrière-plan demande un serveur de push (Web Push
 + clés VAPID), non inclus.
 

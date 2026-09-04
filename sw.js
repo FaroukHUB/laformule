@@ -4,16 +4,16 @@
      cache en secours.
    - Images et polices : cache d'abord.
    - /api/ : jamais mis en cache.
-   Incrémenter VERSION à chaque déploiement pour purger l'ancien cache. */
+   À chaque déploiement : changer VERSION ici ET le paramètre ?v= dans index.html. */
 
-const VERSION = "laformule-v1";
+const VERSION = "laformule-20260904b";
 const SHELL = [
   "/",
   "/index.html",
-  "/styles.css",
-  "/script.js",
-  "/snack-runtime.js",
-  "/config/laformule59.config.js",
+  "/styles.css?v=20260904b",
+  "/script.js?v=20260904b",
+  "/snack-runtime.js?v=20260904b",
+  "/config/laformule59.config.js?v=20260904b",
   "/manifest.webmanifest",
   "/images/logoformule.webp",
   "/images/heroformule.webp",
@@ -45,7 +45,9 @@ function isApi(url) {
 async function networkFirst(request) {
   const cache = await caches.open(VERSION);
   try {
-    const fresh = await fetch(request);
+    // cache: "no-cache" force une revalidation auprès du serveur : on ne sert
+    // jamais un vieux JS/CSS depuis le cache HTTP du navigateur.
+    const fresh = await fetch(request.url, { cache: "no-cache", credentials: "same-origin" });
     if (fresh && fresh.ok) cache.put(request, fresh.clone());
     return fresh;
   } catch (e) {

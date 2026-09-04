@@ -1,0 +1,32 @@
+# ============================================================================
+# La Formule – règles Apache / LiteSpeed
+# ============================================================================
+
+# Le dépôt git ne doit jamais être servi
+RedirectMatch 404 /\.git
+RedirectMatch 404 /README\.md$
+RedirectMatch 404 /\.gitignore$
+
+# Types MIME
+AddType image/webp .webp
+AddType application/manifest+json .webmanifest
+
+<IfModule mod_headers.c>
+  # Code et pages : toujours revalidés (les mises à jour arrivent immédiatement).
+  # Le paramètre ?v= dans index.html et le service worker gèrent le reste.
+  <FilesMatch "\.(html|js|css|webmanifest|php)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  # Images : cache long (elles changent rarement, et leur nom change si besoin)
+  <FilesMatch "\.(webp|png|jpe?g|gif|svg|ico|woff2?)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+  # Le service worker doit pouvoir contrôler tout le site
+  <Files "sw.js">
+    Header set Service-Worker-Allowed "/"
+  </Files>
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive Off
+</IfModule>
